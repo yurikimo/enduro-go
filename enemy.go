@@ -2,6 +2,7 @@
 
 import (
 	"image/color"
+	"math"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -36,26 +37,38 @@ func NewEnemy(road Road) Enemy {
 func (e *Enemy) LaneOffset() float64 {
 	return e.laneOffset
 }
-
-func randomLaneOffsetExcept(blocked float64) float64 {
-	choices := make([]float64, 0, len(enemyLanes))
-
-	for _, lane := range enemyLanes {
-		if lane != blocked {
-			choices = append(choices, lane)
-		}
-	}
-
-	return choices[rand.Intn(len(choices))]
+func (e *Enemy) ResetAvoidingLanes(road Road, blocked []float64) {
+	e.laneOffset = randomLaneOffsetAvoiding(blocked)
+	e.y = road.horizonY + enemyStartYGap
 }
 
-func (e *Enemy) ResetExceptLane(road Road, blocked float64) {
-	e.laneOffset = randomLaneOffsetExcept(blocked)
-	e.y = road.horizonY + enemyStartYGap
+func laneBlocked(lane float64, blocked []float64) bool {
+	for _, b := range blocked {
+		if math.Abs(lane-b) < 0.001 {
+			return true
+		}
+	}
+	return false
 }
 
 func randomLaneOffset() float64 {
 	return enemyLanes[rand.Intn(len(enemyLanes))]
+}
+
+func randomLaneOffsetAvoiding(blocked []float64) float64 {
+	choices := make([]float64, 0, len(enemyLanes))
+
+	for _, lane := range enemyLanes {
+		if !laneBlocked(lane, blocked) {
+			choices = append(choices, lane)
+		}
+	}
+
+	if len(choices) == 0 {
+		return randomLaneOffset()
+	}
+
+	return choices[rand.Intn(len(choices))]
 }
 
 func (e *Enemy) Update() {

@@ -86,11 +86,29 @@ func (r *Road) roadEdgesAt(y float64) (float64, float64) {
 	return left, right
 }
 
-func (r *Road) Draw(screen *ebiten.Image) {
-	skyColor := color.RGBA{40, 80, 220, 255}
-	groundColor := color.RGBA{34, 139, 34, 255}
-	roadColor := color.RGBA{70, 70, 70, 255}
-	lineColor := color.RGBA{240, 240, 240, 255}
+func scaleColor(base color.RGBA, light float64) color.RGBA {
+	if light < 0 {
+		light = 0
+	}
+	if light > 1 {
+		light = 1
+	}
+
+	minBrightness := 0.35
+	factor := minBrightness + light*(1.0-minBrightness)
+
+	return color.RGBA{
+		R: uint8(float64(base.R) * factor),
+		G: uint8(float64(base.G) * factor),
+		B: uint8(float64(base.B) * factor),
+		A: base.A,
+	}
+}
+
+func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float64) {
+	groundColor := scaleColor(color.RGBA{34, 139, 34, 255}, sceneLight)
+	roadColor := scaleColor(color.RGBA{70, 70, 70, 255}, sceneLight)
+	lineColor := scaleColor(color.RGBA{240, 240, 240, 255}, sceneLight)
 
 	screen.Fill(skyColor)
 	ebitenutil.DrawRect(screen, 0, r.horizonY, float64(screenWidth), float64(screenHeight)-r.horizonY, groundColor)

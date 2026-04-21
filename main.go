@@ -2,7 +2,9 @@
 
 import (
 	"fmt"
+	"image/color"
 	"log"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -15,11 +17,12 @@ const (
 )
 
 type Game struct {
-	road     Road
-	player   Player
-	enemies  []Enemy
-	score    int
-	gameOver bool
+	road      Road
+	player    Player
+	enemies   []Enemy
+	score     int
+	gameOver  bool
+	timeOfDay float64
 }
 
 func NewGame() *Game {
@@ -28,11 +31,12 @@ func NewGame() *Game {
 	enemies := []Enemy{
 		NewEnemy(road),
 		NewEnemy(road),
+		NewEnemy(road),
 	}
 
 	for i := 1; i < len(enemies); i++ {
-		enemies[1].Reset(road)
-		enemies[1].y = road.horizonY + float64(45*i)
+		enemies[i].Reset(road)
+		enemies[i].y = road.horizonY + float64(45*i)
 	}
 
 	return &Game{
@@ -54,16 +58,17 @@ func (g *Game) Reset() {
 	}
 
 	for i := 1; i < len(g.enemies); i++ {
-		g.enemies[1].Reset(g.road)
-		g.enemies[1].y = g.road.horizonY + float64(45*i)
+		g.enemies[i].Reset(g.road)
+		g.enemies[i].y = g.road.horizonY + float64(45*i)
 	}
 
 	g.score = 0
 	g.gameOver = false
+	g.timeOfDay = 0
 }
 
 func (g *Game) Speedup() float64 {
-	return enemyBaseSpeed + float64(g.score)*0.06
+	return enemyBaseSpeed + float64(g.score)*0.03
 }
 
 func (g *Game) Update() error {
@@ -78,6 +83,8 @@ func (g *Game) Update() error {
 	g.road.Update()
 	g.player.Update(g.road)
 
+	g.timeOfDay += 1.0 / 60.0
+
 	for i := range g.enemies {
 		g.enemies[i].Update()
 
@@ -86,7 +93,16 @@ func (g *Game) Update() error {
 			g.enemies[i].SetSpeed(g.Speedup())
 			g.road.SetSpeed(g.Speedup())
 
-			g.enemies[i].Reset(g.road)
+			blockedLanes := make([]float64, 0, len(g.enemies)-1)
+
+			for j := range g.enemies {
+				if j == i {
+					continue
+				}
+				blockedLanes = append(blockedLanes, g.enemies[j].LaneOffset())
+			}
+
+			g.enemies[i].ResetAvoidingLanes(g.road, blockedLanes)
 		}
 
 		if g.player.IsColliding(g.enemies[i].Rect(g.road)) {
@@ -110,9 +126,44 @@ func (g *Game) hudText() string {
 		g.score,
 	)
 }
+func (g *Game) sceneLight() float64 {
+	dayNightCycleSeconds := 40.0
 
+	phase := math.Mod(g.timeOfDay/dayNightCycleSeconds, 2.0)
+	if phase > 1 {
+		phase = 2 - phase
+	}
+
+	return 1.0 - phase
+}
+func (g *Game) skyColor() color.RGBA {
+	dayNightCycleSeconds := 40.0
+	phase := math.Mod(g.timeOfDay/dayNightCycleSeconds, 2.0)
+
+	day := color.RGBA{40, 80, 220, 255}
+	dusk := color.RGBA{220, 120, 60, 255}
+	night := color.RGBA{10, 10, 40, 255}
+
+	if phase < 0.5 {
+		t := phase / 0.5
+		return lerpColor(day, dusk, t)
+	}
+
+	if phase < 1.0 {
+		t := (phase - 0.5) / 0.5
+		return lerpColor(dusk, night, t)
+	}
+
+	if phase < 1.5 {
+		t := (phase - 1.0) / 0.5
+		return lerpColor(night, dusk, t)
+	}
+
+	t := (phase - 1.5) / 0.5
+	return lerpColor(dusk, day, t)
+}
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.road.Draw(screen)
+	g.road.Draw(screen, g.skyColor(), g.sceneLight())
 	g.player.Draw(screen)
 
 	for _, enemy := range g.enemies {
