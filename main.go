@@ -2,7 +2,6 @@
 
 import (
 	"fmt"
-	"image/color"
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -37,7 +36,7 @@ func NewGame() *Game {
 
 func (g *Game) Reset() {
 	g.road = NewRoad()
-	
+
 	g.player = NewPlayer(g.road)
 	g.enemy = NewEnemy(g.road)
 
@@ -71,32 +70,35 @@ func (g *Game) Update() error {
 		g.enemy.Reset(g.road)
 	}
 
-	if g.player.IsColliding(g.enemy.Rect()) {
+	if g.player.IsColliding(g.enemy.Rect(g.road)) {
 		g.gameOver = true
 	}
 
 	return nil
 }
 
-func (g *Game) Draw(screen *ebiten.Image) {
-	grassColor := color.RGBA{34, 139, 34, 255}
-
-	screen.Fill(grassColor)
-
-	g.road.Draw(screen)
-	g.player.Draw(screen)
-	g.enemy.Draw(screen)
-
+func (g *Game) hudText() string {
 	if g.gameOver {
-		message := fmt.Sprintf("Game over\nScore: %d\nPress R to restart", g.score)
-
-		ebitenutil.DebugPrint(screen, message)
-
-		return
+		return fmt.Sprintf(
+			"GAME OVER\nScore: %d\nSpeed: %.1f\nPress R to restart",
+			g.score,
+			g.enemy.speed,
+		)
 	}
 
-	message := fmt.Sprintf("Left/Right to move\nScore: %d\n %.1f", g.score, g.enemy.speed)
-	ebitenutil.DebugPrint(screen, message)
+	return fmt.Sprintf(
+		"Score: %d\nSpeed: %.1f\nMove: Left / Right",
+		g.score,
+		g.enemy.speed,
+	)
+}
+
+func (g *Game) Draw(screen *ebiten.Image) {
+	g.road.Draw(screen)
+	g.player.Draw(screen)
+	g.enemy.Draw(screen, g.road)
+
+	ebitenutil.DebugPrintAt(screen, g.hudText(), 8, 8)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -104,7 +106,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func main() {
-	ebiten.SetWindowSize(screenWidth, screenHeight)
+	ebiten.SetWindowSize(screenWidth*windowScale, screenHeight*windowScale)
 	ebiten.SetWindowTitle("Enduro GO - Milestone 1")
 
 	game := NewGame()

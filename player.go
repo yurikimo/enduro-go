@@ -19,7 +19,8 @@ type Player struct {
 }
 
 func NewPlayer(road Road) Player {
-	startX := road.Left() + (road.width-float64(playerWidth))/2
+	left, right := road.BoundsAt(float64(playerY))
+	startX := left + (right-left-float64(playerWidth))/2
 
 	return Player{
 		x: startX,
@@ -34,11 +35,13 @@ func (p *Player) Update(road Road) {
 		p.x += playerSpeed
 	}
 
-	if p.x < road.Left() {
-		p.x = road.Left()
+	left, right := road.BoundsAt(float64(playerY))
+
+	if p.x < left {
+		p.x = left
 	}
-	if p.x > road.PlayerRightLimit(float64(playerWidth)) {
-		p.x = road.PlayerRightLimit(float64(playerWidth))
+	if p.x > right-float64(playerWidth) {
+		p.x = right - float64(playerWidth)
 	}
 }
 
@@ -58,8 +61,10 @@ func (p Player) Rect() Rect {
 }
 
 func (p Player) IsColliding(b Rect) bool {
-	return p.Rect().X < b.X+b.W &&
-		p.Rect().X+p.Rect().W > b.X &&
-		p.Rect().Y < b.Y+b.H &&
-		p.Rect().Y+p.Rect().H > b.Y
+	playerRect := p.Rect()
+
+	return playerRect.X < b.X+b.W &&
+		playerRect.X+playerRect.W > b.X &&
+		playerRect.Y < b.Y+b.H &&
+		playerRect.Y+playerRect.H > b.Y
 }
