@@ -104,14 +104,57 @@ func scaleColor(base color.RGBA, light float64) color.RGBA {
 		A: base.A,
 	}
 }
+func horizonColor(sceneLight float64) color.RGBA {
+	base := color.RGBA{200, 190, 90, 255}
+	return scaleColor(base, sceneLight)
+}
+func drawHill(screen *ebiten.Image, x, y, w, h float64, hillColor color.RGBA) {
+	for i := 0.0; i < h; i++ {
+		progress := i / h
 
-func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float64) {
+		// Narrow near the top, wide near the bottom.
+		currentWidth := w * (0.3 + 0.7*progress)
+		left := x + (w-currentWidth)/2
+
+		ebitenutil.DrawRect(screen, left, y+i, currentWidth, 1, hillColor)
+	}
+}
+func applyVisibility(base color.RGBA, visibility float64, distanceFactor float64) color.RGBA {
+	if visibility < 0 {
+		visibility = 0
+	}
+	if visibility > 1 {
+		visibility = 1
+	}
+	if distanceFactor < 0 {
+		distanceFactor = 0
+	}
+	if distanceFactor > 1 {
+		distanceFactor = 1
+	}
+
+	// Farther objects lose more brightness at night.
+	effective := visibility + (1.0-visibility)*(distanceFactor*0.5)
+
+	return color.RGBA{
+		R: uint8(float64(base.R) * effective),
+		G: uint8(float64(base.G) * effective),
+		B: uint8(float64(base.B) * effective),
+		A: base.A,
+	}
+}
+func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float64, visibility float64) {
 	groundColor := scaleColor(color.RGBA{34, 139, 34, 255}, sceneLight)
 	roadColor := scaleColor(color.RGBA{70, 70, 70, 255}, sceneLight)
 	lineColor := scaleColor(color.RGBA{240, 240, 240, 255}, sceneLight)
 
 	screen.Fill(skyColor)
 	ebitenutil.DrawRect(screen, 0, r.horizonY, float64(screenWidth), float64(screenHeight)-r.horizonY, groundColor)
+
+	hillColor := horizonColor(sceneLight)
+
+	drawHill(screen, 45, r.horizonY, 55, 12, hillColor)
+	drawHill(screen, 220, r.horizonY, 50, 10, hillColor)
 
 	for y := int(r.horizonY); y < screenHeight; y++ {
 		left, right := r.roadEdgesAt(float64(y))
@@ -140,6 +183,8 @@ func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float6
 		lineWidth := 1.0 + progress*3.0
 		lineHeight := 3.0 + progress*16.0
 
-		ebitenutil.DrawRect(screen, centerX-lineWidth/2, y, lineWidth, lineHeight, lineColor)
+		distanceFactor := progress
+		markerColor := applyVisibility(lineColor, visibility, distanceFactor)
+		ebitenutil.DrawRect(screen, centerX-lineWidth/2, y, lineWidth, lineHeight, markerColor)
 	}
 }

@@ -120,8 +120,11 @@ func (e *Enemy) screenX(road Road) float64 {
 	return centerX + e.laneOffset*(roadWidthAtY*0.5) - width/2
 }
 
-func (e *Enemy) Draw(screen *ebiten.Image, road Road) {
+func (e *Enemy) Draw(screen *ebiten.Image, road Road, visibility float64) {
 	enemyColor := color.RGBA{30, 144, 255, 255}
+
+	progress := e.perspectiveProgress(road)
+	enemyColor = applyVisibility(enemyColor, visibility, progress)
 
 	width, height := e.size(road)
 	x := e.screenX(road)

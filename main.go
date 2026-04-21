@@ -162,12 +162,20 @@ func (g *Game) skyColor() color.RGBA {
 	t := (phase - 1.5) / 0.5
 	return lerpColor(dusk, day, t)
 }
+func (g *Game) visibility() float64 {
+	// At full day: 1.0
+	// At full night: 0.45
+	return 0.20 + g.sceneLight()*0.80
+}
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.road.Draw(screen, g.skyColor(), g.sceneLight())
+	visibility := g.visibility()
+
+	g.road.Draw(screen, g.skyColor(), g.sceneLight(), visibility)
+
 	g.player.Draw(screen)
 
 	for _, enemy := range g.enemies {
-		enemy.Draw(screen, g.road)
+		enemy.Draw(screen, g.road, visibility)
 	}
 
 	ebitenutil.DebugPrintAt(screen, g.hudText(), 8, 8)
