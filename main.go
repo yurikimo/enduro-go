@@ -17,7 +17,7 @@ const (
 type Game struct {
 	road     Road
 	player   Player
-	enemy    Enemy
+	enemies  []Enemy
 	score    int
 	gameOver bool
 }
@@ -25,12 +25,20 @@ type Game struct {
 func NewGame() *Game {
 	road := NewRoad()
 	player := NewPlayer(road)
-	enemy := NewEnemy(road)
+	enemies := []Enemy{
+		NewEnemy(road),
+		NewEnemy(road),
+	}
+
+	for i := 1; i < len(enemies); i++ {
+		enemies[1].Reset(road)
+		enemies[1].y = road.horizonY + float64(45*i)
+	}
 
 	return &Game{
-		road:   road,
-		player: player,
-		enemy:  enemy,
+		road:    road,
+		player:  player,
+		enemies: enemies,
 	}
 }
 
@@ -38,14 +46,24 @@ func (g *Game) Reset() {
 	g.road = NewRoad()
 
 	g.player = NewPlayer(g.road)
-	g.enemy = NewEnemy(g.road)
+
+	g.enemies = []Enemy{
+		NewEnemy(g.road),
+		NewEnemy(g.road),
+		NewEnemy(g.road),
+	}
+
+	for i := 1; i < len(g.enemies); i++ {
+		g.enemies[1].Reset(g.road)
+		g.enemies[1].y = g.road.horizonY + float64(45*i)
+	}
 
 	g.score = 0
 	g.gameOver = false
 }
 
 func (g *Game) Speedup() float64 {
-	return enemyBaseSpeed + float64(g.score)*0.2
+	return enemyBaseSpeed + float64(g.score)*0.06
 }
 
 func (g *Game) Update() error {
@@ -59,19 +77,21 @@ func (g *Game) Update() error {
 
 	g.road.Update()
 	g.player.Update(g.road)
-	g.enemy.Update()
 
-	if g.enemy.IsOffScreen() {
-		g.score++
+	for i := range g.enemies {
+		g.enemies[i].Update()
 
-		g.enemy.SetSpeed(g.Speedup())
-		g.road.SetSpeed(g.Speedup())
+		if g.enemies[i].IsOffScreen() {
+			g.score++
+			g.enemies[i].SetSpeed(g.Speedup())
+			g.road.SetSpeed(g.Speedup())
 
-		g.enemy.Reset(g.road)
-	}
+			g.enemies[i].Reset(g.road)
+		}
 
-	if g.player.IsColliding(g.enemy.Rect(g.road)) {
-		g.gameOver = true
+		if g.player.IsColliding(g.enemies[i].Rect(g.road)) {
+			g.gameOver = true
+		}
 	}
 
 	return nil
@@ -80,23 +100,24 @@ func (g *Game) Update() error {
 func (g *Game) hudText() string {
 	if g.gameOver {
 		return fmt.Sprintf(
-			"GAME OVER\nScore: %d\nSpeed: %.1f\nPress R to restart",
+			"GAME OVER\nScore: %d\nPress R to restart",
 			g.score,
-			g.enemy.speed,
 		)
 	}
 
 	return fmt.Sprintf(
-		"Score: %d\nSpeed: %.1f\nMove: Left / Right",
+		"Score: %d\nMove: Left / Right",
 		g.score,
-		g.enemy.speed,
 	)
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.road.Draw(screen)
 	g.player.Draw(screen)
-	g.enemy.Draw(screen, g.road)
+
+	for _, enemy := range g.enemies {
+		enemy.Draw(screen, g.road)
+	}
 
 	ebitenutil.DebugPrintAt(screen, g.hudText(), 8, 8)
 }

@@ -33,6 +33,27 @@ func NewEnemy(road Road) Enemy {
 	}
 }
 
+func (e *Enemy) LaneOffset() float64 {
+	return e.laneOffset
+}
+
+func randomLaneOffsetExcept(blocked float64) float64 {
+	choices := make([]float64, 0, len(enemyLanes))
+
+	for _, lane := range enemyLanes {
+		if lane != blocked {
+			choices = append(choices, lane)
+		}
+	}
+
+	return choices[rand.Intn(len(choices))]
+}
+
+func (e *Enemy) ResetExceptLane(road Road, blocked float64) {
+	e.laneOffset = randomLaneOffsetExcept(blocked)
+	e.y = road.horizonY + enemyStartYGap
+}
+
 func randomLaneOffset() float64 {
 	return enemyLanes[rand.Intn(len(enemyLanes))]
 }
@@ -50,11 +71,11 @@ func (e *Enemy) SetSpeed(speed float64) {
 	e.speed = speed
 }
 
-func (e Enemy) IsOffScreen() bool {
+func (e *Enemy) IsOffScreen() bool {
 	return e.y > float64(screenHeight)
 }
 
-func (e Enemy) perspectiveProgress(road Road) float64 {
+func (e *Enemy) perspectiveProgress(road Road) float64 {
 	progress := (e.y - road.horizonY) / (float64(screenHeight) - road.horizonY)
 
 	if progress < 0 {
@@ -67,7 +88,7 @@ func (e Enemy) perspectiveProgress(road Road) float64 {
 	return progress
 }
 
-func (e Enemy) size(road Road) (float64, float64) {
+func (e *Enemy) size(road Road) (float64, float64) {
 	progress := e.perspectiveProgress(road)
 
 	width := enemyBaseWidth + (enemyMaxWidth-enemyBaseWidth)*progress
@@ -76,7 +97,7 @@ func (e Enemy) size(road Road) (float64, float64) {
 	return width, height
 }
 
-func (e Enemy) screenX(road Road) float64 {
+func (e *Enemy) screenX(road Road) float64 {
 	left, right := road.BoundsAt(e.y)
 	centerX := (left + right) / 2
 	roadWidthAtY := right - left
@@ -86,7 +107,7 @@ func (e Enemy) screenX(road Road) float64 {
 	return centerX + e.laneOffset*(roadWidthAtY*0.5) - width/2
 }
 
-func (e Enemy) Draw(screen *ebiten.Image, road Road) {
+func (e *Enemy) Draw(screen *ebiten.Image, road Road) {
 	enemyColor := color.RGBA{30, 144, 255, 255}
 
 	width, height := e.size(road)
@@ -95,7 +116,7 @@ func (e Enemy) Draw(screen *ebiten.Image, road Road) {
 	ebitenutil.DrawRect(screen, x, e.y, width, height, enemyColor)
 }
 
-func (e Enemy) Rect(road Road) Rect {
+func (e *Enemy) Rect(road Road) Rect {
 	width, height := e.size(road)
 	x := e.screenX(road)
 
