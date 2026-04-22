@@ -16,7 +16,7 @@ const (
 var (
 	spriteOnce   sync.Once
 	playerSprite *ebiten.Image
-	enemySprite  *ebiten.Image
+	enemySprites []*ebiten.Image
 )
 
 func initSprites() {
@@ -26,11 +26,23 @@ func initSprites() {
 			color.RGBA{255, 232, 92, 255},
 			color.RGBA{190, 28, 28, 255},
 		)
-		enemySprite = makeCarSprite(
-			color.RGBA{30, 144, 255, 255},
-			color.RGBA{198, 238, 255, 255},
-			color.RGBA{24, 110, 210, 255},
-		)
+		enemySprites = []*ebiten.Image{
+			makeCarSprite(
+				color.RGBA{30, 144, 255, 255},
+				color.RGBA{198, 238, 255, 255},
+				color.RGBA{24, 110, 210, 255},
+			),
+			makeCarSprite(
+				color.RGBA{44, 170, 82, 255},
+				color.RGBA{210, 246, 214, 255},
+				color.RGBA{34, 132, 64, 255},
+			),
+			makeCarSprite(
+				color.RGBA{232, 210, 72, 255},
+				color.RGBA{255, 248, 180, 255},
+				color.RGBA{200, 168, 46, 255},
+			),
+		}
 	})
 }
 
@@ -39,9 +51,15 @@ func playerCarSprite() *ebiten.Image {
 	return playerSprite
 }
 
-func enemyCarSprite() *ebiten.Image {
+func enemyCarSprite(index int) *ebiten.Image {
 	initSprites()
-	return enemySprite
+	if len(enemySprites) == 0 {
+		return nil
+	}
+	if index < 0 || index >= len(enemySprites) {
+		index = 0
+	}
+	return enemySprites[index]
 }
 
 func makeCarSprite(bodyColor, glassColor, accentColor color.RGBA) *ebiten.Image {

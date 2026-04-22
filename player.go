@@ -3,8 +3,8 @@
 import "github.com/hajimehoshi/ebiten/v2"
 
 const (
-	playerWidth        = 16
-	playerHeight       = 24
+	playerWidth        = 24
+	playerHeight       = 32
 	playerY            = screenHeight - 40
 	playerSteerSpeed   = 3.5
 	playerMinSpeed     = 0.5
@@ -13,7 +13,8 @@ const (
 	playerAcceleration = 0.06
 	playerBrakeSpeed   = 0.10
 	playerCurveDrift   = 0.015
-	playerMaxLeanAngle = 0.22
+	playerMaxLeanAngle = 0.65
+	playerCollisionScale = 0.75
 )
 
 type Player struct {
@@ -87,12 +88,12 @@ func (p *Player) Draw(screen *ebiten.Image, road Road) {
 }
 
 func (p Player) Rect() Rect {
-	return Rect{
+	return insetRect(Rect{
 		X: p.x,
 		Y: float64(playerY),
 		W: playerWidth,
 		H: playerHeight,
-	}
+	}, playerCollisionScale)
 }
 
 func (p Player) IsColliding(b Rect) bool {

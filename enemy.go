@@ -8,40 +8,47 @@ import (
 )
 
 const (
-	enemyBaseWidth  = 1.0
-	enemyBaseHeight = 1.0
-	enemyMaxWidth   = 16.0
-	enemyMaxHeight  = 24.0
-	enemyMinSpeed   = 2.0
-	enemyMaxSpeed   = 4.0
-	enemyStartYGap  = 10.0
-	enemySpawnGap   = 34.0
-	enemyMaxLeanAng = 0.75
-	enemyBottomLean = 0.22
-	enemyMaxSizeAt  = 5.0 / 6.0
+	enemyBaseWidth         = 1.0
+	enemyBaseHeight        = 1.0
+	enemyMaxWidth          = 24.0
+	enemyMaxHeight         = 32.0
+	enemyMinSpeed          = 2.0
+	enemyMaxSpeed          = 4.0
+	enemyStartYGap         = 10.0
+	enemySpawnGap          = 34.0
+	enemyMaxLeanAng        = 0.65
+	enemyBottomLean        = 0.22
+	enemyMaxSizeAt         = 3.0 / 6.0
 	enemyMaxLifetimeFrames = 900
+	enemyCollisionScale    = 0.75
 )
 
 var enemyLanes = []float64{-0.75, 0.0, 0.75}
 
 type Enemy struct {
-	laneOffset float64
-	y          float64
-	speed      float64
+	laneOffset  float64
+	y           float64
+	speed       float64
 	framesAlive int
+	colorIndex  int
 }
 
 func NewEnemy(road Road) Enemy {
 	return Enemy{
-		laneOffset: randomLaneOffset(),
-		y:          road.horizonY + enemyStartYGap,
-		speed:      randomEnemySpeed(),
+		laneOffset:  randomLaneOffset(),
+		y:           road.horizonY + enemyStartYGap,
+		speed:       randomEnemySpeed(),
 		framesAlive: 0,
+		colorIndex:  randomEnemyColorIndex(),
 	}
 }
 
 func randomEnemySpeed() float64 {
 	return enemyMinSpeed + rand.Float64()*(enemyMaxSpeed-enemyMinSpeed)
+}
+
+func randomEnemyColorIndex() int {
+	return rand.Intn(3)
 }
 
 func (e *Enemy) LaneOffset() float64 {
@@ -88,6 +95,7 @@ func (e *Enemy) spawnFromTop(road Road, blocked []float64) {
 	e.y = road.horizonY + enemyStartYGap
 	e.speed = randomEnemySpeed()
 	e.framesAlive = 0
+	e.colorIndex = randomEnemyColorIndex()
 }
 
 func (e *Enemy) spawnFromBottom(road Road, blocked []float64) {
@@ -96,6 +104,7 @@ func (e *Enemy) spawnFromBottom(road Road, blocked []float64) {
 	e.y = float64(screenHeight) - height - 4
 	e.speed = randomEnemySpeed()
 	e.framesAlive = 0
+	e.colorIndex = randomEnemyColorIndex()
 }
 
 func (e *Enemy) applySpawnSpacingFromTop(occupiedY []float64) {
@@ -162,6 +171,7 @@ func (e *Enemy) Reset(road Road) {
 	e.y = road.horizonY + enemyStartYGap
 	e.speed = randomEnemySpeed()
 	e.framesAlive = 0
+	e.colorIndex = randomEnemyColorIndex()
 }
 
 func (e *Enemy) IsBelowScreen() bool {
@@ -259,17 +269,17 @@ func (e *Enemy) Draw(screen *ebiten.Image, road Road, visibility float64) {
 	options.GeoM.Translate(x+width/2, contactY)
 	options.ColorScale.ScaleWithColor(tint)
 
-	screen.DrawImage(enemyCarSprite(), options)
+	screen.DrawImage(enemyCarSprite(e.colorIndex), options)
 }
 
 func (e *Enemy) Rect(road Road) Rect {
 	width, height := e.size(road)
 	x := e.screenX(road)
 
-	return Rect{
+	return insetRect(Rect{
 		X: x,
 		Y: e.y,
 		W: width,
 		H: height,
-	}
+	}, enemyCollisionScale)
 }
