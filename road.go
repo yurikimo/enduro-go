@@ -170,15 +170,45 @@ func horizonColor(sceneLight float64) color.RGBA {
 	return scaleColor(color.RGBA{200, 190, 90, 255}, sceneLight)
 }
 
-func drawHill(screen *ebiten.Image, x, horizonY, w, h float64, hillColor color.RGBA) {
+func duneHighlightColor(sceneLight float64) color.RGBA {
+	return scaleColor(color.RGBA{224, 206, 120, 255}, sceneLight)
+}
+
+func propColor(sceneLight float64) color.RGBA {
+	return scaleColor(color.RGBA{92, 76, 38, 255}, sceneLight)
+}
+
+func drawDune(screen *ebiten.Image, x, horizonY, w, h float64, baseColor, highlightColor color.RGBA) {
 	for i := 0.0; i < h; i++ {
 		progress := i / h
-		currentWidth := w * (0.3 + 0.7*progress)
+		currentWidth := w * (0.25 + 0.75*progress)
 		left := x + (w-currentWidth)/2
 		y := horizonY - h + i
 
-		ebitenutil.DrawRect(screen, left, y, currentWidth, 1, hillColor)
+		rowColor := baseColor
+		if progress < 0.35 {
+			rowColor = highlightColor
+		}
+
+		ebitenutil.DrawRect(screen, left, y, currentWidth, 1, rowColor)
 	}
+}
+
+func drawRockSpire(screen *ebiten.Image, x, horizonY, w, h float64, rockColor color.RGBA) {
+	for i := 0.0; i < h; i++ {
+		progress := i / h
+		currentWidth := w * (0.35 + 0.65*progress)
+		left := x + (w-currentWidth)/2
+		y := horizonY - h + i
+
+		ebitenutil.DrawRect(screen, left, y, currentWidth, 1, rockColor)
+	}
+}
+
+func drawRoadsidePost(screen *ebiten.Image, x, horizonY, h float64, postColor color.RGBA) {
+	postWidth := 2.0
+	ebitenutil.DrawRect(screen, x, horizonY-h, postWidth, h, postColor)
+	ebitenutil.DrawRect(screen, x-2, horizonY-h, 6, 2, postColor)
 }
 
 func applyVisibility(base color.RGBA, visibility float64, distanceFactor float64) color.RGBA {
@@ -224,9 +254,15 @@ func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float6
 	screen.Fill(skyColor)
 	ebitenutil.DrawRect(screen, 0, r.horizonY, float64(screenWidth), float64(screenHeight)-r.horizonY, groundColor)
 
-	hillColor := horizonColor(sceneLight)
-	drawHill(screen, 45, r.horizonY, 55, 12, hillColor)
-	drawHill(screen, 220, r.horizonY, 50, 10, hillColor)
+	horizonShift := r.curveOffset * 1.15
+	duneColor := horizonColor(sceneLight)
+	duneHighlight := duneHighlightColor(sceneLight)
+	backgroundProp := propColor(sceneLight)
+
+	drawDune(screen, 26+horizonShift*0.55, r.horizonY, 88, 16, duneColor, duneHighlight)
+	drawDune(screen, 204+horizonShift*0.55, r.horizonY, 76, 13, duneColor, duneHighlight)
+	drawRockSpire(screen, 124+horizonShift*0.8, r.horizonY, 10, 18, backgroundProp)
+	drawRoadsidePost(screen, 252+horizonShift*0.95, r.horizonY, 12, backgroundProp)
 
 	for y := int(r.horizonY); y < screenHeight; y++ {
 		left, right := r.roadEdgesAt(float64(y))
