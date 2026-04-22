@@ -163,13 +163,14 @@ func (e *Enemy) applySpawnSpacingFromBottom(occupiedY []float64) {
 }
 
 func (e *Enemy) Respawn(road Road, blocked []float64, playerSpeed float64, occupiedY []float64) {
-	if playerSpeed >= e.speed {
-		e.spawnFromTop(road, blocked)
-		e.applySpawnSpacingFromTop(occupiedY)
-	} else {
+	if playerSpeed <= playerMinSpeed {
 		e.spawnFromBottom(road, blocked)
 		e.applySpawnSpacingFromBottom(occupiedY)
+		return
 	}
+
+	e.spawnFromTop(road, blocked)
+	e.applySpawnSpacingFromTop(occupiedY)
 }
 
 func (e *Enemy) Reset(road Road) {

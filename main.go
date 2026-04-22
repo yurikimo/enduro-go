@@ -40,7 +40,7 @@ type hudCacheKey struct {
 	gameOver   bool
 	score      int
 	bestScore  int
-	speedTenth int
+	speedKPH   int
 	newBest    bool
 }
 
@@ -170,7 +170,7 @@ func (g *Game) hudText() string {
 		gameOver:   g.gameOver,
 		score:      g.scoreManager.Score(),
 		bestScore:  g.scoreManager.BestScore(),
-		speedTenth: int(g.player.Speed() * 10),
+		speedKPH:   g.displaySpeedKPH(),
 		newBest:    g.scoreManager.HasNewBest(),
 	}
 	if key == g.hudCacheKey {
@@ -205,10 +205,10 @@ func (g *Game) hudText() string {
 	}
 
 	g.hudCacheText = fmt.Sprintf(
-		"Score: %d\nBest: %d\nSpeed: %.1f\nMove: Left/Right\nAccel: Up  Brake: Down\nPause: P",
+		"Score: %d\nBest: %d\nSpeed: %d km/h\nMove: Left/Right\nAccel: Up  Brake: Down\nPause: P",
 		key.score,
 		key.bestScore,
-		float64(key.speedTenth)/10,
+		key.speedKPH,
 	)
 	return g.hudCacheText
 }
@@ -258,6 +258,20 @@ func (g *Game) skyColor() color.RGBA {
 
 func (g *Game) visibility() float64 {
 	return 0.20 + g.sceneLight()*0.80
+}
+
+func (g *Game) displaySpeedKPH() int {
+	ratio := (g.player.Speed() - playerMinSpeed) / (playerMaxSpeed - playerMinSpeed)
+	displaySpeed := int(lerp(80, 200, ratio))
+
+	if displaySpeed < 80 {
+		return 80
+	}
+	if displaySpeed > 200 {
+		return 200
+	}
+
+	return displaySpeed
 }
 
 func visibilityFromLight(sceneLight float64) float64 {
