@@ -21,9 +21,11 @@ type Game struct {
 	player       Player
 	enemies      []Enemy
 	scoreManager ScoreManager
+	paused       bool
 	gameOver     bool
 	timeOfDay    float64
 	started      bool
+	pKeyDown     bool
 }
 
 func NewGame() *Game {
@@ -66,11 +68,22 @@ func (g *Game) Reset() {
 	}
 
 	g.scoreManager.ResetScore()
+	g.paused = false
 	g.gameOver = false
 	g.timeOfDay = 0
 }
 
+func (g *Game) handlePauseToggle() {
+	pPressed := ebiten.IsKeyPressed(ebiten.KeyP)
+	if pPressed && !g.pKeyDown && g.started && !g.gameOver {
+		g.paused = !g.paused
+	}
+	g.pKeyDown = pPressed
+}
+
 func (g *Game) Update() error {
+	g.handlePauseToggle()
+
 	if !g.started {
 		if ebiten.IsKeyPressed(ebiten.KeySpace) {
 			g.started = true
@@ -82,6 +95,10 @@ func (g *Game) Update() error {
 		if ebiten.IsKeyPressed(ebiten.KeyR) {
 			g.Reset()
 		}
+		return nil
+	}
+
+	if g.paused {
 		return nil
 	}
 
@@ -134,8 +151,16 @@ func (g *Game) hudText() string {
 		)
 	}
 
+	if g.paused {
+		return fmt.Sprintf(
+			"PAUSED\nScore: %d\nBest: %d\nPress P to resume",
+			g.scoreManager.Score(),
+			g.scoreManager.BestScore(),
+		)
+	}
+
 	return fmt.Sprintf(
-		"Score: %d\nBest: %d\nSpeed: %.1f\nMove: Left/Right\nAccel: Up  Brake: Down",
+		"Score: %d\nBest: %d\nSpeed: %.1f\nMove: Left/Right\nAccel: Up  Brake: Down\nPause: P",
 		g.scoreManager.Score(),
 		g.scoreManager.BestScore(),
 		g.player.Speed(),
