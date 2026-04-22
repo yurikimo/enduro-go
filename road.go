@@ -12,7 +12,7 @@ const (
 	roadTopWidth    = 2.0
 	roadHorizonY    = 60.0
 	edgeLineWidth   = 2.0
-	roadScrollSpeed = 2.0
+	roadScrollScale = 0.02
 )
 
 type Road struct {
@@ -33,7 +33,7 @@ func NewRoad() Road {
 		topWidth:    roadTopWidth,
 		horizonY:    roadHorizonY,
 		lineOffsetY: 0,
-		speed:       roadScrollSpeed,
+		speed:       0,
 	}
 }
 
@@ -45,17 +45,8 @@ func (r *Road) Right() float64 {
 	return r.x + r.bottomWidth/2
 }
 
-func (r *Road) PlayerRightLimit(playerWidth float64) float64 {
-	return r.Right() - playerWidth
-}
-
 func (r *Road) SetSpeed(speed float64) {
 	r.speed = speed
-}
-
-func (r *Road) CenterXAt(y float64) float64 {
-	left, right := r.roadEdgesAt(y)
-	return (left + right) / 2
 }
 
 func (r *Road) BoundsAt(y float64) (float64, float64) {
@@ -63,9 +54,13 @@ func (r *Road) BoundsAt(y float64) (float64, float64) {
 }
 
 func (r *Road) Update() {
-	r.lineOffsetY += 0.04 * r.speed
-	if r.lineOffsetY >= 1.0 {
+	r.lineOffsetY += roadScrollScale * r.speed
+
+	for r.lineOffsetY >= 1.0 {
 		r.lineOffsetY -= 1.0
+	}
+	for r.lineOffsetY < 0 {
+		r.lineOffsetY += 1.0
 	}
 }
 
@@ -104,21 +99,22 @@ func scaleColor(base color.RGBA, light float64) color.RGBA {
 		A: base.A,
 	}
 }
+
 func horizonColor(sceneLight float64) color.RGBA {
-	base := color.RGBA{200, 190, 90, 255}
-	return scaleColor(base, sceneLight)
+	return scaleColor(color.RGBA{200, 190, 90, 255}, sceneLight)
 }
-func drawHill(screen *ebiten.Image, x, y, w, h float64, hillColor color.RGBA) {
+
+func drawHill(screen *ebiten.Image, x, horizonY, w, h float64, hillColor color.RGBA) {
 	for i := 0.0; i < h; i++ {
 		progress := i / h
-
-		// Narrow near the top, wide near the bottom.
 		currentWidth := w * (0.3 + 0.7*progress)
 		left := x + (w-currentWidth)/2
+		y := horizonY - h + i
 
-		ebitenutil.DrawRect(screen, left, y+i, currentWidth, 1, hillColor)
+		ebitenutil.DrawRect(screen, left, y, currentWidth, 1, hillColor)
 	}
 }
+
 func applyVisibility(base color.RGBA, visibility float64, distanceFactor float64) color.RGBA {
 	if visibility < 0 {
 		visibility = 0
@@ -133,7 +129,6 @@ func applyVisibility(base color.RGBA, visibility float64, distanceFactor float64
 		distanceFactor = 1
 	}
 
-	// Farther objects lose more brightness at night.
 	effective := visibility + (1.0-visibility)*(distanceFactor*0.5)
 
 	return color.RGBA{
@@ -143,6 +138,7 @@ func applyVisibility(base color.RGBA, visibility float64, distanceFactor float64
 		A: base.A,
 	}
 }
+
 func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float64, visibility float64) {
 	groundColor := scaleColor(color.RGBA{34, 139, 34, 255}, sceneLight)
 	roadColor := scaleColor(color.RGBA{70, 70, 70, 255}, sceneLight)
@@ -152,7 +148,6 @@ func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float6
 	ebitenutil.DrawRect(screen, 0, r.horizonY, float64(screenWidth), float64(screenHeight)-r.horizonY, groundColor)
 
 	hillColor := horizonColor(sceneLight)
-
 	drawHill(screen, 45, r.horizonY, 55, 12, hillColor)
 	drawHill(screen, 220, r.horizonY, 50, 10, hillColor)
 
@@ -183,8 +178,7 @@ func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float6
 		lineWidth := 1.0 + progress*3.0
 		lineHeight := 3.0 + progress*16.0
 
-		distanceFactor := progress
-		markerColor := applyVisibility(lineColor, visibility, distanceFactor)
+		markerColor := applyVisibility(lineColor, visibility, progress)
 		ebitenutil.DrawRect(screen, centerX-lineWidth/2, y, lineWidth, lineHeight, markerColor)
 	}
 }

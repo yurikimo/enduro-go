@@ -37,7 +37,6 @@ func NewGame() *Game {
 	}
 
 	for i := 1; i < len(enemies); i++ {
-		enemies[i].Reset(road)
 		enemies[i].y = road.horizonY + float64(45*i)
 	}
 
@@ -54,7 +53,6 @@ func NewGame() *Game {
 
 func (g *Game) Reset() {
 	g.road = NewRoad()
-
 	g.player = NewPlayer(g.road)
 
 	g.enemies = []Enemy{
@@ -64,17 +62,12 @@ func (g *Game) Reset() {
 	}
 
 	for i := 1; i < len(g.enemies); i++ {
-		g.enemies[i].Reset(g.road)
 		g.enemies[i].y = g.road.horizonY + float64(45*i)
 	}
 
 	g.scoreManager.ResetScore()
 	g.gameOver = false
 	g.timeOfDay = 0
-}
-
-func (g *Game) Speedup() float64 {
-	return enemyBaseSpeed + float64(g.scoreManager.Score())*0.03
 }
 
 func (g *Game) Update() error {
@@ -89,25 +82,24 @@ func (g *Game) Update() error {
 		if ebiten.IsKeyPressed(ebiten.KeyR) {
 			g.Reset()
 		}
-
 		return nil
 	}
 
-	g.road.Update()
 	g.player.Update(g.road)
+	g.road.SetSpeed(g.player.Speed())
+	g.road.Update()
 
 	g.timeOfDay += 1.0 / 60.0
 
 	for i := range g.enemies {
-		g.enemies[i].Update()
+		g.enemies[i].Update(g.player.Speed())
 
-		if g.enemies[i].IsOffScreen() {
-			g.scoreManager.UpdateScore()
-			g.enemies[i].SetSpeed(g.Speedup())
-			g.road.SetSpeed(g.Speedup())
+		if g.enemies[i].IsBelowScreen() || g.enemies[i].IsAboveHorizon(g.road) {
+			if g.enemies[i].IsBelowScreen() {
+				g.scoreManager.UpdateScore()
+			}
 
 			blockedLanes := make([]float64, 0, len(g.enemies)-1)
-
 			for j := range g.enemies {
 				if j == i {
 					continue
@@ -115,7 +107,7 @@ func (g *Game) Update() error {
 				blockedLanes = append(blockedLanes, g.enemies[j].LaneOffset())
 			}
 
-			g.enemies[i].ResetAvoidingLanes(g.road, blockedLanes)
+			g.enemies[i].Respawn(g.road, blockedLanes, g.player.Speed())
 		}
 
 		if g.player.IsColliding(g.enemies[i].Rect(g.road)) {
@@ -128,7 +120,10 @@ func (g *Game) Update() error {
 
 func (g *Game) hudText() string {
 	if !g.started {
-		return fmt.Sprintf("ENDURO GO\n\nBest: %d\nPress SPACE to start\nArrow keys to move", g.scoreManager.BestScore())
+		return fmt.Sprintf(
+			"ENDURO GO\n\nBest: %d\nPress SPACE to start\nArrow keys to move\nUp/Down to control speed",
+			g.scoreManager.BestScore(),
+		)
 	}
 
 	if g.gameOver {
@@ -140,11 +135,13 @@ func (g *Game) hudText() string {
 	}
 
 	return fmt.Sprintf(
-		"Score: %d\nBest: %d\nMove: Left / Right",
+		"Score: %d\nBest: %d\nSpeed: %.1f\nMove: Left/Right\nAccel: Up  Brake: Down",
 		g.scoreManager.Score(),
 		g.scoreManager.BestScore(),
+		g.player.Speed(),
 	)
 }
+
 func (g *Game) sceneLight() float64 {
 	dayNightCycleSeconds := 40.0
 
@@ -155,6 +152,7 @@ func (g *Game) sceneLight() float64 {
 
 	return 1.0 - phase
 }
+
 func (g *Game) skyColor() color.RGBA {
 	dayNightCycleSeconds := 40.0
 	phase := math.Mod(g.timeOfDay/dayNightCycleSeconds, 2.0)
@@ -164,33 +162,25 @@ func (g *Game) skyColor() color.RGBA {
 	night := color.RGBA{10, 10, 40, 255}
 
 	if phase < 0.5 {
-		t := phase / 0.5
-		return lerpColor(day, dusk, t)
+		return lerpColor(day, dusk, phase/0.5)
 	}
-
 	if phase < 1.0 {
-		t := (phase - 0.5) / 0.5
-		return lerpColor(dusk, night, t)
+		return lerpColor(dusk, night, (phase-0.5)/0.5)
 	}
-
 	if phase < 1.5 {
-		t := (phase - 1.0) / 0.5
-		return lerpColor(night, dusk, t)
+		return lerpColor(night, dusk, (phase-1.0)/0.5)
 	}
-
-	t := (phase - 1.5) / 0.5
-	return lerpColor(dusk, day, t)
+	return lerpColor(dusk, day, (phase-1.5)/0.5)
 }
+
 func (g *Game) visibility() float64 {
-	// At full day: 1.0
-	// At full night: 0.45
 	return 0.20 + g.sceneLight()*0.80
 }
+
 func (g *Game) Draw(screen *ebiten.Image) {
 	visibility := g.visibility()
 
 	g.road.Draw(screen, g.skyColor(), g.sceneLight(), visibility)
-
 	g.player.Draw(screen)
 
 	for _, enemy := range g.enemies {

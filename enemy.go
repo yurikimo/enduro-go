@@ -14,7 +14,8 @@ const (
 	enemyBaseHeight = 12.0
 	enemyMaxWidth   = 16.0
 	enemyMaxHeight  = 24.0
-	enemyBaseSpeed  = 2.0
+	enemyMinSpeed   = 2.0
+	enemyMaxSpeed   = 4.0
 	enemyStartYGap  = 10.0
 )
 
@@ -30,16 +31,16 @@ func NewEnemy(road Road) Enemy {
 	return Enemy{
 		laneOffset: randomLaneOffset(),
 		y:          road.horizonY + enemyStartYGap,
-		speed:      enemyBaseSpeed,
+		speed:      randomEnemySpeed(),
 	}
+}
+
+func randomEnemySpeed() float64 {
+	return enemyMinSpeed + rand.Float64()*(enemyMaxSpeed-enemyMinSpeed)
 }
 
 func (e *Enemy) LaneOffset() float64 {
 	return e.laneOffset
-}
-func (e *Enemy) ResetAvoidingLanes(road Road, blocked []float64) {
-	e.laneOffset = randomLaneOffsetAvoiding(blocked)
-	e.y = road.horizonY + enemyStartYGap
 }
 
 func laneBlocked(lane float64, blocked []float64) bool {
@@ -71,21 +72,44 @@ func randomLaneOffsetAvoiding(blocked []float64) float64 {
 	return choices[rand.Intn(len(choices))]
 }
 
-func (e *Enemy) Update() {
-	e.y += e.speed
+func (e *Enemy) Update(playerSpeed float64) {
+	relativeSpeed := playerSpeed - e.speed
+	e.y += relativeSpeed
+}
+
+func (e *Enemy) spawnFromTop(road Road, blocked []float64) {
+	e.laneOffset = randomLaneOffsetAvoiding(blocked)
+	e.y = road.horizonY + enemyStartYGap
+	e.speed = randomEnemySpeed()
+}
+
+func (e *Enemy) spawnFromBottom(road Road, blocked []float64) {
+	e.laneOffset = randomLaneOffsetAvoiding(blocked)
+	_, height := e.size(road)
+	e.y = float64(screenHeight) - height - 4
+	e.speed = randomEnemySpeed()
+}
+
+func (e *Enemy) Respawn(road Road, blocked []float64, playerSpeed float64) {
+	if playerSpeed >= e.speed {
+		e.spawnFromTop(road, blocked)
+	} else {
+		e.spawnFromBottom(road, blocked)
+	}
 }
 
 func (e *Enemy) Reset(road Road) {
 	e.laneOffset = randomLaneOffset()
 	e.y = road.horizonY + enemyStartYGap
+	e.speed = randomEnemySpeed()
 }
 
-func (e *Enemy) SetSpeed(speed float64) {
-	e.speed = speed
-}
-
-func (e *Enemy) IsOffScreen() bool {
+func (e *Enemy) IsBelowScreen() bool {
 	return e.y > float64(screenHeight)
+}
+
+func (e *Enemy) IsAboveHorizon(road Road) bool {
+	return e.y < road.horizonY+enemyStartYGap-20
 }
 
 func (e *Enemy) perspectiveProgress(road Road) float64 {

@@ -8,14 +8,20 @@ import (
 )
 
 const (
-	playerWidth  = 16
-	playerHeight = 24
-	playerSpeed  = 3.5
-	playerY      = screenHeight - 40
+	playerWidth        = 16
+	playerHeight       = 24
+	playerY            = screenHeight - 40
+	playerSteerSpeed   = 3.5
+	playerMinSpeed     = 0.5
+	playerMaxSpeed     = 8.0
+	playerStartSpeed   = 3.0
+	playerAcceleration = 0.06
+	playerBrakeSpeed   = 0.10
 )
 
 type Player struct {
-	x float64
+	x     float64
+	speed float64
 }
 
 func NewPlayer(road Road) Player {
@@ -23,20 +29,33 @@ func NewPlayer(road Road) Player {
 	startX := left + (right-left-float64(playerWidth))/2
 
 	return Player{
-		x: startX,
+		x:     startX,
+		speed: playerStartSpeed,
 	}
 }
 
 func (p *Player) Update(road Road) {
 	if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-		p.x -= playerSpeed
+		p.x -= playerSteerSpeed
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyRight) {
-		p.x += playerSpeed
+		p.x += playerSteerSpeed
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyUp) {
+		p.speed += playerAcceleration
+	} else if ebiten.IsKeyPressed(ebiten.KeyDown) {
+		p.speed -= playerBrakeSpeed
+	}
+
+	if p.speed < playerMinSpeed {
+		p.speed = playerMinSpeed
+	}
+	if p.speed > playerMaxSpeed {
+		p.speed = playerMaxSpeed
 	}
 
 	left, right := road.BoundsAt(float64(playerY))
-
 	if p.x < left {
 		p.x = left
 	}
@@ -45,9 +64,12 @@ func (p *Player) Update(road Road) {
 	}
 }
 
+func (p Player) Speed() float64 {
+	return p.speed
+}
+
 func (p *Player) Draw(screen *ebiten.Image) {
 	playerColor := color.RGBA{220, 30, 30, 255}
-
 	ebitenutil.DrawRect(screen, p.x, float64(playerY), playerWidth, playerHeight, playerColor)
 }
 
