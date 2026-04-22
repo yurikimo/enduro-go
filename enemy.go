@@ -1,12 +1,10 @@
 ﻿package main
 
 import (
-	"image/color"
 	"math"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
@@ -154,7 +152,7 @@ func (e *Enemy) IsAboveHorizon(road Road) bool {
 }
 
 func (e *Enemy) perspectiveProgress(road Road) float64 {
-	progress := (e.y - road.horizonY) / (float64(screenHeight) - road.horizonY)
+	progress := (e.contactY(road) - road.horizonY) / (float64(screenHeight) - road.horizonY)
 
 	if progress < 0 {
 		progress = 0
@@ -166,35 +164,66 @@ func (e *Enemy) perspectiveProgress(road Road) float64 {
 	return progress
 }
 
-func (e *Enemy) size(road Road) (float64, float64) {
-	progress := e.perspectiveProgress(road)
+func (e *Enemy) contactY(road Road) float64 {
+	_, height := e.sizeFromProgress(e.perspectiveProgressGuess(road))
+	return e.y + height
+}
 
+func (e *Enemy) perspectiveProgressGuess(road Road) float64 {
+	progress := (e.y - road.horizonY) / (float64(screenHeight) - road.horizonY)
+
+	if progress < 0 {
+		return 0
+	}
+	if progress > 1 {
+		return 1
+	}
+
+	return progress
+}
+
+func (e *Enemy) sizeFromProgress(progress float64) (float64, float64) {
 	width := enemyBaseWidth + (enemyMaxWidth-enemyBaseWidth)*progress
 	height := enemyBaseHeight + (enemyMaxHeight-enemyBaseHeight)*progress
 
 	return width, height
 }
 
+func (e *Enemy) size(road Road) (float64, float64) {
+	return e.sizeFromProgress(e.perspectiveProgressGuess(road))
+}
+
 func (e *Enemy) screenX(road Road) float64 {
-	left, right := road.BoundsAt(e.y)
+	width, _ := e.size(road)
+	contactY := e.y + e.contactHeight(road)
+	left, right := road.BoundsAt(contactY)
 	centerX := (left + right) / 2
 	roadWidthAtY := right - left
-
-	width, _ := e.size(road)
 
 	return centerX + e.laneOffset*(roadWidthAtY*0.5) - width/2
 }
 
+func (e *Enemy) contactHeight(road Road) float64 {
+	_, height := e.size(road)
+	return height
+}
+
 func (e *Enemy) Draw(screen *ebiten.Image, road Road, visibility float64) {
-	enemyColor := color.RGBA{30, 144, 255, 255}
-
-	progress := e.perspectiveProgress(road)
-	enemyColor = applyVisibility(enemyColor, visibility, progress)
-
 	width, height := e.size(road)
 	x := e.screenX(road)
+	progress := e.perspectiveProgress(road)
+	tint := applyVisibility(colorRGBA(255, 255, 255), visibility, progress)
+	contactY := e.y + height
+	angle := -road.CurveAngleAt(contactY)
 
-	ebitenutil.DrawRect(screen, x, e.y, width, height, enemyColor)
+	options := &ebiten.DrawImageOptions{}
+	options.GeoM.Translate(-carSpriteWidth/2, -carSpriteHeight)
+	options.GeoM.Scale(width/carSpriteWidth, height/carSpriteHeight)
+	options.GeoM.Rotate(angle)
+	options.GeoM.Translate(x+width/2, contactY)
+	options.ColorScale.ScaleWithColor(tint)
+
+	screen.DrawImage(enemyCarSprite(), options)
 }
 
 func (e *Enemy) Rect(road Road) Rect {

@@ -1,11 +1,6 @@
 ﻿package main
 
-import (
-	"image/color"
-
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-)
+import "github.com/hajimehoshi/ebiten/v2"
 
 const (
 	playerWidth        = 16
@@ -72,9 +67,21 @@ func (p Player) Speed() float64 {
 	return p.speed
 }
 
-func (p *Player) Draw(screen *ebiten.Image) {
-	playerColor := color.RGBA{220, 30, 30, 255}
-	ebitenutil.DrawRect(screen, p.x, float64(playerY), playerWidth, playerHeight, playerColor)
+func (p *Player) Draw(screen *ebiten.Image, road Road) {
+	sprite := playerCarSprite()
+	contactY := float64(playerY + playerHeight)
+	angle := -road.CurveAngleAt(contactY)
+
+	options := &ebiten.DrawImageOptions{}
+	options.GeoM.Translate(-carSpriteWidth/2, -carSpriteHeight)
+	options.GeoM.Scale(
+		float64(playerWidth)/carSpriteWidth,
+		float64(playerHeight)/carSpriteHeight,
+	)
+	options.GeoM.Rotate(angle)
+	options.GeoM.Translate(p.x+float64(playerWidth)/2, contactY)
+
+	screen.DrawImage(sprite, options)
 }
 
 func (p Player) Rect() Rect {

@@ -20,3 +20,7 @@ func lerpColor(a, b color.RGBA, t float64) color.RGBA {
 		A: 255,
 	}
 }
+
+func colorRGBA(r, g, b uint8) color.RGBA {
+	return color.RGBA{R: r, G: g, B: b, A: 255}
+}

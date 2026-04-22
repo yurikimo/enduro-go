@@ -21,6 +21,7 @@ type Game struct {
 	player       Player
 	enemies      []Enemy
 	scoreManager ScoreManager
+	soundManager SoundManager
 	paused       bool
 	gameOver     bool
 	timeOfDay    float64
@@ -49,6 +50,7 @@ func NewGame() *Game {
 		player:       player,
 		enemies:      enemies,
 		scoreManager: scoreManager,
+		soundManager: NewSoundManager(),
 		started:      false,
 	}
 }
@@ -68,6 +70,7 @@ func (g *Game) Reset() {
 	}
 
 	g.scoreManager.ResetScore()
+	g.soundManager.OnReset()
 	g.paused = false
 	g.gameOver = false
 	g.timeOfDay = 0
@@ -77,6 +80,7 @@ func (g *Game) handlePauseToggle() {
 	pPressed := ebiten.IsKeyPressed(ebiten.KeyP)
 	if pPressed && !g.pKeyDown && g.started && !g.gameOver {
 		g.paused = !g.paused
+		g.soundManager.OnPauseChanged(g.paused)
 	}
 	g.pKeyDown = pPressed
 }
@@ -88,6 +92,7 @@ func (g *Game) Update() error {
 		g.timeOfDay += 1.0 / 60.0
 		if ebiten.IsKeyPressed(ebiten.KeySpace) {
 			g.started = true
+			g.soundManager.OnGameStart()
 		}
 		return nil
 	}
@@ -104,6 +109,7 @@ func (g *Game) Update() error {
 	}
 
 	g.player.Update(g.road)
+	g.soundManager.UpdateEngine(g.player.Speed(), g.paused, g.gameOver)
 	g.road.SetSpeed(g.player.Speed())
 	g.road.Update()
 
@@ -131,6 +137,7 @@ func (g *Game) Update() error {
 		}
 
 		if g.player.IsColliding(g.enemies[i].Rect(g.road)) {
+			g.soundManager.OnCrash()
 			g.gameOver = true
 		}
 	}
@@ -222,7 +229,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	visibility := g.visibility()
 
 	g.road.Draw(screen, g.skyColor(), g.sceneLight(), visibility)
-	g.player.Draw(screen)
+	g.player.Draw(screen, g.road)
 
 	for _, enemy := range g.enemies {
 		enemy.Draw(screen, g.road, visibility)
