@@ -14,11 +14,18 @@ const (
 )
 
 var (
+	// spriteOnce ensures the sprite images are created only once.
+	//
+	// sync.Once is useful here because sprite creation is shared by the whole program.
+	// We want a single cached copy of each sprite, not a new image every time a car is drawn.
 	spriteOnce   sync.Once
 	playerSprite *ebiten.Image
 	enemySprites []*ebiten.Image
 )
 
+// initSprites lazily builds the player and enemy car sprites.
+//
+// Lazy initialization keeps setup simple while still avoiding repeated image allocation.
 func initSprites() {
 	spriteOnce.Do(func() {
 		playerSprite = makeCarSprite(
@@ -46,11 +53,15 @@ func initSprites() {
 	})
 }
 
+// playerCarSprite returns the cached player car image.
 func playerCarSprite() *ebiten.Image {
 	initSprites()
 	return playerSprite
 }
 
+// enemyCarSprite returns one of the cached enemy car images.
+//
+// The index is clamped to a safe fallback so callers do not need extra defensive code.
 func enemyCarSprite(index int) *ebiten.Image {
 	initSprites()
 	if len(enemySprites) == 0 {
@@ -62,6 +73,12 @@ func enemyCarSprite(index int) *ebiten.Image {
 	return enemySprites[index]
 }
 
+// makeCarSprite draws a small pixel-art car into an off-screen image.
+//
+// Important teaching note:
+// The sprite is authored in sprite-space using fixed pixel coordinates (24x16).
+// Later, the game scales that image to match world-space size on screen.
+// This separation makes it easier to reason about art details independently from gameplay dimensions.
 func makeCarSprite(bodyColor, glassColor, accentColor color.RGBA) *ebiten.Image {
 	sprite := image.NewRGBA(image.Rect(0, 0, carSpriteWidth, carSpriteHeight))
 
@@ -150,6 +167,9 @@ func makeCarSprite(bodyColor, glassColor, accentColor color.RGBA) *ebiten.Image 
 	return ebiten.NewImageFromImage(sprite)
 }
 
+// paintRect fills a rectangle directly into the RGBA sprite buffer.
+//
+// This helper keeps the pixel-art construction readable for learners.
 func paintRect(img *image.RGBA, x, y, width, height int, fill color.Color) {
 	for py := y; py < y+height; py++ {
 		for px := x; px < x+width; px++ {

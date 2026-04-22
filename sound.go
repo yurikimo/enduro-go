@@ -12,6 +12,13 @@ const (
 	maxPCM16        = 32767
 )
 
+// SoundManager owns the small synthesized sound effects used by the game.
+//
+// The project generates audio procedurally instead of loading asset files so learners can see
+// that sound in Ebiten is ultimately just PCM byte data played through an audio player.
+//
+// Some fields are pointers or slices because the underlying Ebiten audio types are mutable runtime objects.
+// The manager keeps and reuses them instead of recreating them every frame.
 type SoundManager struct {
 	context       *audio.Context
 	enginePlayers []*audio.Player
@@ -22,6 +29,10 @@ type SoundManager struct {
 	gameStart     *audio.Player
 }
 
+// NewSoundManager builds all audio players once at startup.
+//
+// Returning SoundManager by value is fine here because the struct mainly stores pointers and slices.
+// The expensive runtime objects are still shared through those references.
 func NewSoundManager() SoundManager {
 	context := audio.NewContext(audioSampleRate)
 
@@ -60,10 +71,14 @@ func NewSoundManager() SoundManager {
 	}
 }
 
+// OnGameStart plays the short ascending jingle used when the game begins.
 func (s *SoundManager) OnGameStart() {
 	s.playEffect(s.gameStart)
 }
 
+// OnPauseChanged reacts to pause toggles.
+//
+// When the game is paused, the engine loop is stopped so the game feels frozen instead of still moving.
 func (s *SoundManager) OnPauseChanged(paused bool) {
 	if paused {
 		s.pauseEngine()
@@ -74,6 +89,10 @@ func (s *SoundManager) OnPauseChanged(paused bool) {
 	s.playEffect(s.pauseBlip)
 }
 
+// UpdateEngine selects and plays a looping engine sound that matches the current speed.
+//
+// This is called every frame, so it avoids rebuilding players or sample data.
+// Only the active loop and volume are updated.
 func (s *SoundManager) UpdateEngine(playerSpeed float64, paused bool, gameOver bool) {
 	if paused || gameOver || playerSpeed <= 0 {
 		s.pauseEngine()
@@ -94,16 +113,21 @@ func (s *SoundManager) UpdateEngine(playerSpeed float64, paused bool, gameOver b
 	}
 }
 
+// OnCrash stops the engine loop and plays the crash effect.
 func (s *SoundManager) OnCrash() {
 	s.pauseEngine()
 	s.playEffect(s.crashBurst)
 }
 
+// OnReset restores the silent state used at the beginning of a new run.
 func (s *SoundManager) OnReset() {
 	s.pauseEngine()
 	s.playEffect(s.startBeep)
 }
 
+// pauseEngine pauses every engine loop and forgets which loop was active.
+//
+// Resetting currentEngine to -1 forces UpdateEngine to re-evaluate the correct loop next time.
 func (s *SoundManager) pauseEngine() {
 	for _, player := range s.enginePlayers {
 		player.Pause()
@@ -111,17 +135,24 @@ func (s *SoundManager) pauseEngine() {
 	s.currentEngine = -1
 }
 
+// prepareEffectPlayer creates a reusable player for a short one-shot effect.
+//
+// The sample bytes are prepared once, then rewound and replayed whenever needed.
 func prepareEffectPlayer(context *audio.Context, sample []byte) *audio.Player {
 	player := context.NewPlayerFromBytes(sample)
 	return player
 }
 
+// playEffect rewinds a one-shot effect and plays it from the start.
 func (s *SoundManager) playEffect(player *audio.Player) {
 	player.Pause()
 	_ = player.Rewind()
 	player.Play()
 }
 
+// selectEngineLoop maps the current speed to one of the prebuilt engine loops.
+//
+// The thresholds are simple by design so learners can easily tune them.
 func selectEngineLoop(playerSpeed float64) int {
 	switch {
 	case playerSpeed < 1.8:
@@ -135,6 +166,7 @@ func selectEngineLoop(playerSpeed float64) int {
 	}
 }
 
+// engineVolume converts gameplay speed into an audio volume in a safe range.
 func engineVolume(playerSpeed float64) float64 {
 	normalized := (playerSpeed - playerMinSpeed) / (playerMaxSpeed - playerMinSpeed)
 	if normalized < 0 {
@@ -147,6 +179,7 @@ func engineVolume(playerSpeed float64) float64 {
 	return 0.10 + normalized*0.22
 }
 
+// synthSequence concatenates several PCM buffers into a single sample.
 func synthSequence(parts ...[]byte) []byte {
 	totalLength := 0
 	for _, part := range parts {
@@ -161,11 +194,15 @@ func synthSequence(parts ...[]byte) []byte {
 	return sequence
 }
 
+// silencePCM creates silent stereo PCM data for spacing between notes.
 func silencePCM(durationSeconds float64) []byte {
 	frameCount := int(float64(audioSampleRate) * durationSeconds)
 	return make([]byte, frameCount*4)
 }
 
+// synthSquareTone creates a simple square-wave tone with a tiny attack/release envelope.
+//
+// The envelope reduces clicks at the beginning and end of the sound.
 func synthSquareTone(frequency float64, durationSeconds float64, amplitude float64) []byte {
 	frameCount := int(float64(audioSampleRate) * durationSeconds)
 	data := make([]byte, 0, frameCount*4)
@@ -186,6 +223,9 @@ func synthSquareTone(frequency float64, durationSeconds float64, amplitude float
 	return data
 }
 
+// synthEngineLoop creates a short repeating engine-like sample.
+//
+// It mixes a square wave with a harmonic and slight vibrato so the loop feels less flat.
 func synthEngineLoop(baseFrequency float64, amplitude float64) []byte {
 	const durationSeconds = 0.24
 
@@ -212,6 +252,7 @@ func synthEngineLoop(baseFrequency float64, amplitude float64) []byte {
 	return data
 }
 
+// synthCrashBurst creates a noisy, decaying crash effect.
 func synthCrashBurst(durationSeconds float64, amplitude float64) []byte {
 	frameCount := int(float64(audioSampleRate) * durationSeconds)
 	data := make([]byte, 0, frameCount*4)
@@ -230,6 +271,7 @@ func synthCrashBurst(durationSeconds float64, amplitude float64) []byte {
 	return data
 }
 
+// attackReleaseEnvelope returns a simple fade-in/fade-out multiplier for a normalized sound position.
 func attackReleaseEnvelope(progress float64, attack, release float64) float64 {
 	if progress < attack {
 		return progress / attack
@@ -240,11 +282,15 @@ func attackReleaseEnvelope(progress float64, attack, release float64) float64 {
 	return 1.0
 }
 
+// pseudoNoise returns a repeatable pseudo-random value in the range -1..1.
+//
+// It is deterministic, which is enough here because the effect only needs a noisy texture.
 func pseudoNoise(index int) float64 {
 	value := math.Sin(float64(index)*12.9898) * 43758.5453
 	return 2*(value-math.Floor(value)) - 1
 }
 
+// appendPCM16Stereo appends one stereo 16-bit PCM frame to the destination buffer.
 func appendPCM16Stereo(data []byte, left, right int16) []byte {
 	return append(
 		data,

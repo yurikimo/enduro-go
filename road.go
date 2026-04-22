@@ -23,6 +23,13 @@ const (
 	curveStraightBias = 0.30
 )
 
+// Road stores the perspective road and its scrolling/curvature state.
+//
+// The road is responsible for two important teaching ideas in this project:
+//   1. Perspective: the road gets narrower toward the horizon.
+//   2. Curvature: the road center shifts sideways over time.
+//
+// Other systems query the road to convert abstract lane positions into concrete screen positions.
 type Road struct {
 	x           float64
 	bottomWidth float64
@@ -36,6 +43,7 @@ type Road struct {
 	curveFrames int
 }
 
+// NewRoad creates the default road centered on screen.
 func NewRoad() Road {
 	centerX := float64(screenWidth) / 2
 
@@ -54,10 +62,12 @@ func NewRoad() Road {
 	return road
 }
 
+// randomCurveFrames picks how long the next road curve should last.
 func randomCurveFrames() int {
 	return curveMinFrames + rand.Intn(curveMaxFrames-curveMinFrames+1)
 }
 
+// randomCurveTarget chooses the next horizontal curve offset.
 func randomCurveTarget() float64 {
 	if rand.Float64() < curveStraightBias {
 		return 0
@@ -66,33 +76,44 @@ func randomCurveTarget() float64 {
 	return (rand.Float64()*2 - 1) * curveMaxOffset
 }
 
+// Left returns the road's left boundary at the bottom of the screen.
 func (r *Road) Left() float64 {
 	left, _ := r.BoundsAt(float64(screenHeight))
 	return left
 }
 
+// Right returns the road's right boundary at the bottom of the screen.
 func (r *Road) Right() float64 {
 	_, right := r.BoundsAt(float64(screenHeight))
 	return right
 }
 
+// PlayerRightLimit returns the maximum player X value that still keeps the car on the road.
 func (r *Road) PlayerRightLimit(playerWidth float64) float64 {
 	return r.Right() - playerWidth
 }
 
+// SetSpeed updates the road scroll speed.
 func (r *Road) SetSpeed(speed float64) {
 	r.speed = speed
 }
 
+// CenterXAt returns the road center at a given Y coordinate.
 func (r *Road) CenterXAt(y float64) float64 {
 	left, right := r.roadEdgesAt(y)
 	return (left + right) / 2
 }
 
+// BoundsAt returns the left and right road edges for a given screen Y.
+//
+// This is one of the most important perspective helpers in the project.
+// Near the horizon the road is narrow, and near the player it is wide.
+// Enemies and the player use this to stay visually attached to the road.
 func (r *Road) BoundsAt(y float64) (float64, float64) {
 	return r.roadEdgesAt(y)
 }
 
+// Update advances the lane markers and smoothly steers the road toward its current curve target.
 func (r *Road) Update() {
 	r.lineOffsetY += roadScrollScale * r.speed
 
@@ -111,10 +132,14 @@ func (r *Road) Update() {
 		r.curveFrames = randomCurveFrames()
 	}
 }
+// CurveOffset returns the current horizontal bend amount.
 func (r *Road) CurveOffset() float64 {
 	return r.curveOffset
 }
 
+// curveShiftAt returns how much the road center is shifted sideways at a given Y.
+//
+// The shift is stronger near the horizon and weaker near the camera to mimic classic pseudo-3D road motion.
 func (r *Road) curveShiftAt(y float64) float64 {
 	if y < r.horizonY {
 		y = r.horizonY
@@ -129,6 +154,14 @@ func (r *Road) curveShiftAt(y float64) float64 {
 	return r.curveOffset * horizonWeight * horizonWeight
 }
 
+// roadEdgesAt is the core perspective calculation for the road.
+//
+// Given a screen Y, it computes:
+//   - the road width at that depth
+//   - the curved center X at that depth
+//   - the final left and right edges
+//
+// Many other systems build on this function, so understanding it is key to understanding the project.
 func (r *Road) roadEdgesAt(y float64) (float64, float64) {
 	if y < r.horizonY {
 		y = r.horizonY
@@ -148,6 +181,7 @@ func (r *Road) roadEdgesAt(y float64) (float64, float64) {
 	return left, right
 }
 
+// scaleColor darkens or brightens a color while preserving alpha.
 func scaleColor(base color.RGBA, light float64) color.RGBA {
 	if light < 0 {
 		light = 0
@@ -167,6 +201,7 @@ func scaleColor(base color.RGBA, light float64) color.RGBA {
 	}
 }
 
+// tintEnvironmentColor adds simple day/dusk/night tinting to a base color.
 func tintEnvironmentColor(base color.RGBA, sceneLight float64) color.RGBA {
 	if sceneLight < 0 {
 		sceneLight = 0
@@ -186,18 +221,22 @@ func tintEnvironmentColor(base color.RGBA, sceneLight float64) color.RGBA {
 	return lerpColor(warmed, color.RGBA{34, 48, 82, 255}, nightStrength*0.22)
 }
 
+// horizonColor returns the current dune color.
 func horizonColor(sceneLight float64) color.RGBA {
 	return scaleColor(color.RGBA{200, 190, 90, 255}, sceneLight)
 }
 
+// duneHighlightColor returns the dune highlight color.
 func duneHighlightColor(sceneLight float64) color.RGBA {
 	return scaleColor(color.RGBA{224, 206, 120, 255}, sceneLight)
 }
 
+// propColor returns the current background prop color.
 func propColor(sceneLight float64) color.RGBA {
 	return scaleColor(color.RGBA{92, 76, 38, 255}, sceneLight)
 }
 
+// drawDune draws a simple layered dune shape at the horizon.
 func drawDune(screen *ebiten.Image, x, horizonY, w, h float64, baseColor, highlightColor color.RGBA) {
 	for i := 0.0; i < h; i++ {
 		progress := i / h
@@ -214,6 +253,7 @@ func drawDune(screen *ebiten.Image, x, horizonY, w, h float64, baseColor, highli
 	}
 }
 
+// drawRockSpire draws a simple background rock shape.
 func drawRockSpire(screen *ebiten.Image, x, horizonY, w, h float64, rockColor color.RGBA) {
 	for i := 0.0; i < h; i++ {
 		progress := i / h
@@ -225,12 +265,14 @@ func drawRockSpire(screen *ebiten.Image, x, horizonY, w, h float64, rockColor co
 	}
 }
 
+// drawRoadsidePost draws a small roadside post near the horizon.
 func drawRoadsidePost(screen *ebiten.Image, x, horizonY, h float64, postColor color.RGBA) {
 	postWidth := 2.0
 	ebitenutil.DrawRect(screen, x, horizonY-h, postWidth, h, postColor)
 	ebitenutil.DrawRect(screen, x-2, horizonY-h, 6, 2, postColor)
 }
 
+// applyVisibility fades colors based on scene visibility and distance.
 func applyVisibility(base color.RGBA, visibility float64, distanceFactor float64) color.RGBA {
 	if visibility < 0 {
 		visibility = 0
@@ -255,6 +297,7 @@ func applyVisibility(base color.RGBA, visibility float64, distanceFactor float64
 	}
 }
 
+// drawCurvedMarker draws one lane marker segment following the road's curve at each scanline.
 func drawCurvedMarker(screen *ebiten.Image, road *Road, y, width, height float64, markerColor color.RGBA) {
 	for i := 0.0; i < height; i++ {
 		sliceY := y + i
@@ -266,6 +309,12 @@ func drawCurvedMarker(screen *ebiten.Image, road *Road, y, width, height float64
 	}
 }
 
+// Draw renders the entire road scene from back to front.
+//
+// Teaching note:
+// The order matters.
+// First the background is drawn, then the ground, then the road body, then the road edges and markers.
+// This "paint from farthest to nearest" approach is a simple way to manage layering in 2D games.
 func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float64, visibility float64) {
 	groundColor := tintEnvironmentColor(scaleColor(color.RGBA{34, 139, 34, 255}, sceneLight), sceneLight)
 	roadColor := tintEnvironmentColor(scaleColor(color.RGBA{70, 70, 70, 255}, sceneLight), sceneLight)

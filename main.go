@@ -17,6 +17,13 @@ const (
 	windowScale  = 2
 )
 
+// Game owns the full runtime state of the application.
+//
+// Ebiten repeatedly calls Game.Update and Game.Draw.
+// That makes this type the central coordinator for the project.
+//
+// Teaching note:
+// Keeping game state in one struct makes the game loop easier to follow for learners.
 type Game struct {
 	road         Road
 	player       Player
@@ -34,6 +41,9 @@ type Game struct {
 	hudCacheText string
 }
 
+// hudCacheKey captures the fields that affect the generated HUD text.
+//
+// The project caches the formatted string so it does not rebuild it every frame unnecessarily.
 type hudCacheKey struct {
 	started    bool
 	paused     bool
@@ -44,6 +54,9 @@ type hudCacheKey struct {
 	newBest    bool
 }
 
+// NewGame creates the initial game state and loads persistent data.
+//
+// A pointer is returned because Game is the long-lived mutable owner of the whole application state.
 func NewGame() *Game {
 	road := NewRoad()
 	player := NewPlayer(road)
@@ -72,6 +85,7 @@ func NewGame() *Game {
 	}
 }
 
+// Reset starts a new run while keeping persistent best-score data and cached systems alive.
 func (g *Game) Reset() {
 	g.road = NewRoad()
 	g.player = NewPlayer(g.road)
@@ -94,6 +108,9 @@ func (g *Game) Reset() {
 	g.hudCacheText = ""
 }
 
+// handlePauseToggle performs edge-triggered pause input.
+//
+// The game checks for the transition from "not pressed" to "pressed" so holding P does not toggle repeatedly.
 func (g *Game) handlePauseToggle() {
 	pPressed := ebiten.IsKeyPressed(ebiten.KeyP)
 	if pPressed && !g.pKeyDown && g.started && !g.gameOver {
@@ -103,6 +120,15 @@ func (g *Game) handlePauseToggle() {
 	g.pKeyDown = pPressed
 }
 
+// Update advances the game simulation by one frame.
+//
+// This is the heart of the game loop.
+// A useful way to read it is as a state machine:
+//   1. Handle global input like pause.
+//   2. If the title screen is active, only wait for the start input.
+//   3. If the game is over, only wait for reset input.
+//   4. If paused, skip simulation.
+//   5. Otherwise update player, road, enemies, scoring, sound, and collisions.
 func (g *Game) Update() error {
 	g.handlePauseToggle()
 
@@ -163,6 +189,9 @@ func (g *Game) Update() error {
 	return nil
 }
 
+// hudText returns the HUD string shown during play or special states.
+//
+// It caches the generated text because the visible text often stays the same for many frames.
 func (g *Game) hudText() string {
 	key := hudCacheKey{
 		started:    g.started,
@@ -213,6 +242,7 @@ func (g *Game) hudText() string {
 	return g.hudCacheText
 }
 
+// drawTitleScreen renders the title and instructions shown before gameplay starts.
 func (g *Game) drawTitleScreen(screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, "ENDURO GO", 8, 8)
 	ebitenutil.DebugPrintAt(screen, "Old time road racing in Go", 58, 62)
@@ -225,6 +255,7 @@ func (g *Game) drawTitleScreen(screen *ebiten.Image) {
 	}
 }
 
+// sceneLight returns a normalized daylight amount used by the day/night cycle.
 func (g *Game) sceneLight() float64 {
 	dayNightCycleSeconds := 40.0
 
@@ -236,6 +267,7 @@ func (g *Game) sceneLight() float64 {
 	return 1.0 - phase
 }
 
+// skyColor picks the sky color for the current time of day.
 func (g *Game) skyColor() color.RGBA {
 	dayNightCycleSeconds := 40.0
 	phase := math.Mod(g.timeOfDay/dayNightCycleSeconds, 2.0)
@@ -256,10 +288,12 @@ func (g *Game) skyColor() color.RGBA {
 	return lerpColor(dusk, day, (phase-1.5)/0.5)
 }
 
+// visibility converts scene light into a general scene visibility factor.
 func (g *Game) visibility() float64 {
 	return 0.20 + g.sceneLight()*0.80
 }
 
+// displaySpeedKPH maps gameplay speed into a player-facing km/h value for the HUD.
 func (g *Game) displaySpeedKPH() int {
 	ratio := (g.player.Speed() - playerMinSpeed) / (playerMaxSpeed - playerMinSpeed)
 	displaySpeed := int(lerp(80, 200, ratio))
@@ -274,10 +308,17 @@ func (g *Game) displaySpeedKPH() int {
 	return displaySpeed
 }
 
+// visibilityFromLight is a small helper that maps light to visibility.
 func visibilityFromLight(sceneLight float64) float64 {
 	return 0.20 + sceneLight*0.80
 }
 
+// Draw renders one complete frame.
+//
+// Important game-loop note:
+// Update changes the state.
+// Draw only reads the current state and turns it into pixels.
+// Keeping those responsibilities separate makes the program much easier to reason about.
 func (g *Game) Draw(screen *ebiten.Image) {
 	sceneLight := g.sceneLight()
 	visibility := visibilityFromLight(sceneLight)
@@ -297,10 +338,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, g.hudText(), 8, 8)
 }
 
+// Layout tells Ebiten the internal logical resolution used by the game.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenWidth, screenHeight
 }
 
+// main configures the window and starts the Ebiten game loop.
 func main() {
 	ebiten.SetWindowSize(screenWidth*windowScale, screenHeight*windowScale)
 	ebiten.SetWindowTitle("Enduro GO - Milestone 1")
