@@ -11,13 +11,11 @@ const (
 	enemyBaseWidth         = 1.0
 	enemyBaseHeight        = 1.0
 	enemyMaxWidth          = 24.0
-	enemyMaxHeight         = 32.0
+	enemyMaxHeight         = 16.0
 	enemyMinSpeed          = 2.0
 	enemyMaxSpeed          = 4.0
 	enemyStartYGap         = 10.0
 	enemySpawnGap          = 34.0
-	enemyMaxLeanAng        = 0.65
-	enemyBottomLean        = 0.22
 	enemyMaxSizeAt         = 3.0 / 6.0
 	enemyMaxLifetimeFrames = 900
 	enemyCollisionScale    = 0.75
@@ -257,16 +255,10 @@ func (e *Enemy) Draw(screen *ebiten.Image, road Road, visibility float64) {
 	x := e.screenX(road)
 	progress := e.perspectiveProgress(road)
 	tint := applyVisibility(colorRGBA(255, 255, 255), visibility, progress)
-	contactY := e.y + height
-	centerOffset := road.CenterOffsetAt(x+width/2, contactY)
-	leanAngle := lerp(enemyMaxLeanAng, enemyBottomLean, progress)
-	angle := -centerOffset * leanAngle
 
 	options := &ebiten.DrawImageOptions{}
-	options.GeoM.Translate(-carSpriteWidth/2, -carSpriteHeight)
 	options.GeoM.Scale(width/carSpriteWidth, height/carSpriteHeight)
-	options.GeoM.Rotate(angle)
-	options.GeoM.Translate(x+width/2, contactY)
+	options.GeoM.Translate(x, e.y)
 	options.ColorScale.ScaleWithColor(tint)
 
 	screen.DrawImage(enemyCarSprite(e.colorIndex), options)

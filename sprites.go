@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	carSpriteWidth  = 16
-	carSpriteHeight = 24
+	carSpriteWidth  = 24
+	carSpriteHeight = 16
 )
 
 var (
@@ -65,20 +65,87 @@ func enemyCarSprite(index int) *ebiten.Image {
 func makeCarSprite(bodyColor, glassColor, accentColor color.RGBA) *ebiten.Image {
 	sprite := image.NewRGBA(image.Rect(0, 0, carSpriteWidth, carSpriteHeight))
 
-	paintRect(sprite, 5, 0, 6, 2, glassColor)
-	paintRect(sprite, 4, 2, 8, 4, bodyColor)
-	paintRect(sprite, 3, 6, 10, 14, bodyColor)
-	paintRect(sprite, 4, 8, 8, 4, glassColor)
-	paintRect(sprite, 4, 14, 8, 4, accentColor)
-	paintRect(sprite, 5, 18, 6, 3, bodyColor)
-	paintRect(sprite, 4, 21, 8, 2, accentColor)
+	darkBlue := color.RGBA{0, 0, 120, 255}
+	blueHighlight := color.RGBA{20, 60, 255, 255}
+	windowDark := color.RGBA{40, 40, 40, 255}
+	windowMid := color.RGBA{120, 120, 120, 255}
+	windowLight := color.RGBA{180, 180, 180, 255}
+	tailRed := color.RGBA{220, 0, 0, 255}
+	tailOrange := color.RGBA{255, 120, 0, 255}
+	wheel := color.RGBA{24, 24, 24, 255}
 
-	paintRect(sprite, 2, 4, 2, 5, color.Black)
-	paintRect(sprite, 12, 4, 2, 5, color.Black)
-	paintRect(sprite, 2, 14, 2, 5, color.Black)
-	paintRect(sprite, 12, 14, 2, 5, color.Black)
-	paintRect(sprite, 5, 22, 2, 1, color.RGBA{255, 228, 126, 255})
-	paintRect(sprite, 9, 22, 2, 1, color.RGBA{255, 228, 126, 255})
+	// Clear background is implicit.
+
+	// --- Roof / rear window frame ---
+	paintRect(sprite, 6, 0, 12, 1, bodyColor)
+	paintRect(sprite, 5, 1, 1, 1, bodyColor)
+	paintRect(sprite, 18, 1, 1, 1, bodyColor)
+
+	paintRect(sprite, 4, 2, 2, 1, bodyColor)
+	paintRect(sprite, 18, 2, 2, 1, bodyColor)
+
+	paintRect(sprite, 3, 3, 2, 1, bodyColor)
+	paintRect(sprite, 19, 3, 2, 1, bodyColor)
+
+	paintRect(sprite, 2, 4, 2, 1, bodyColor)
+	paintRect(sprite, 20, 4, 2, 1, bodyColor)
+
+	// --- Rear window ---
+	paintRect(sprite, 6, 2, 12, 1, windowDark)
+	paintRect(sprite, 5, 3, 14, 1, windowDark)
+	paintRect(sprite, 4, 4, 16, 1, windowMid)
+	paintRect(sprite, 5, 5, 10, 1, windowLight)
+	paintRect(sprite, 15, 5, 3, 1, windowDark)
+
+	// --- Upper body / shoulders ---
+	paintRect(sprite, 2, 5, 2, 1, bodyColor)
+	paintRect(sprite, 20, 5, 2, 1, bodyColor)
+
+	paintRect(sprite, 1, 6, 22, 1, bodyColor)
+	paintRect(sprite, 1, 7, 22, 1, bodyColor)
+
+	// Dark under-roof band
+	paintRect(sprite, 2, 8, 20, 1, darkBlue)
+
+	// Small left details visible in the reference
+	paintRect(sprite, 5, 8, 1, 1, darkBlue)
+	paintRect(sprite, 7, 8, 1, 1, blueHighlight)
+	paintRect(sprite, 5, 9, 1, 1, blueHighlight)
+	paintRect(sprite, 7, 9, 1, 1, blueHighlight)
+
+	// --- Main rear body ---
+	paintRect(sprite, 1, 9, 22, 1, bodyColor)
+	paintRect(sprite, 0, 10, 24, 1, darkBlue)
+	paintRect(sprite, 0, 11, 24, 3, darkBlue)
+
+	// Center blue panel / rear grille
+	paintRect(sprite, 9, 10, 6, 1, blueHighlight)
+	paintRect(sprite, 9, 11, 6, 1, blueHighlight)
+	paintRect(sprite, 8, 12, 8, 1, blueHighlight)
+
+	// Lower center recess
+	paintRect(sprite, 8, 13, 8, 1, wheel)
+
+	// --- Tail lights ---
+	paintRect(sprite, 3, 11, 4, 2, tailRed)
+	paintRect(sprite, 17, 11, 4, 2, tailRed)
+
+	paintRect(sprite, 4, 11, 1, 1, tailOrange)
+	paintRect(sprite, 6, 11, 1, 1, tailOrange)
+	paintRect(sprite, 18, 11, 1, 1, tailOrange)
+	paintRect(sprite, 20, 11, 1, 1, tailOrange)
+
+	// Inner vertical light bars
+	paintRect(sprite, 7, 11, 1, 2, tailRed)
+	paintRect(sprite, 16, 11, 1, 2, tailRed)
+
+	// --- Lower body corners ---
+	paintRect(sprite, 0, 14, 8, 1, darkBlue)
+	paintRect(sprite, 16, 14, 8, 1, darkBlue)
+
+	// --- Wheels ---
+	paintRect(sprite, 2, 14, 4, 2, wheel)
+	paintRect(sprite, 18, 14, 4, 2, wheel)
 
 	return ebiten.NewImageFromImage(sprite)
 }

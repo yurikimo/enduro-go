@@ -1,19 +1,18 @@
-﻿package main
+package main
 
 import "github.com/hajimehoshi/ebiten/v2"
 
 const (
-	playerWidth        = 24
-	playerHeight       = 32
-	playerY            = screenHeight - 40
-	playerSteerSpeed   = 3.5
-	playerMinSpeed     = 0.5
-	playerMaxSpeed     = 6.0
-	playerStartSpeed   = 3.0
-	playerAcceleration = 0.06
-	playerBrakeSpeed   = 0.10
-	playerCurveDrift   = 0.015
-	playerMaxLeanAngle = 0.65
+	playerWidth          = 24
+	playerHeight         = 16
+	playerY              = screenHeight - 40
+	playerSteerSpeed     = 3.5
+	playerMinSpeed       = 0.5
+	playerMaxSpeed       = 6.0
+	playerStartSpeed     = 3.0
+	playerAcceleration   = 0.06
+	playerBrakeSpeed     = 0.10
+	playerCurveDrift     = 0.015
 	playerCollisionScale = 0.75
 )
 
@@ -71,18 +70,13 @@ func (p Player) Speed() float64 {
 
 func (p *Player) Draw(screen *ebiten.Image, road Road) {
 	sprite := playerCarSprite()
-	contactY := float64(playerY + playerHeight)
-	centerOffset := road.CenterOffsetAt(p.x+float64(playerWidth)/2, contactY)
-	angle := -centerOffset * playerMaxLeanAngle
 
 	options := &ebiten.DrawImageOptions{}
-	options.GeoM.Translate(-carSpriteWidth/2, -carSpriteHeight)
 	options.GeoM.Scale(
 		float64(playerWidth)/carSpriteWidth,
 		float64(playerHeight)/carSpriteHeight,
 	)
-	options.GeoM.Rotate(angle)
-	options.GeoM.Translate(p.x+float64(playerWidth)/2, contactY)
+	options.GeoM.Translate(p.x, float64(playerY))
 
 	screen.DrawImage(sprite, options)
 }
