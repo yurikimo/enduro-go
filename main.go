@@ -17,17 +17,19 @@ const (
 )
 
 type Game struct {
-	road      Road
-	player    Player
-	enemies   []Enemy
-	score     int
-	gameOver  bool
-	timeOfDay float64
+	road         Road
+	player       Player
+	enemies      []Enemy
+	scoreManager ScoreManager
+	gameOver     bool
+	timeOfDay    float64
+	started      bool
 }
 
 func NewGame() *Game {
 	road := NewRoad()
 	player := NewPlayer(road)
+	scoreManager := NewScoreManager()
 	enemies := []Enemy{
 		NewEnemy(road),
 		NewEnemy(road),
@@ -39,10 +41,14 @@ func NewGame() *Game {
 		enemies[i].y = road.horizonY + float64(45*i)
 	}
 
+	scoreManager.LoadBestScore()
+
 	return &Game{
-		road:    road,
-		player:  player,
-		enemies: enemies,
+		road:         road,
+		player:       player,
+		enemies:      enemies,
+		scoreManager: scoreManager,
+		started:      false,
 	}
 }
 
@@ -62,16 +68,23 @@ func (g *Game) Reset() {
 		g.enemies[i].y = g.road.horizonY + float64(45*i)
 	}
 
-	g.score = 0
+	g.scoreManager.ResetScore()
 	g.gameOver = false
 	g.timeOfDay = 0
 }
 
 func (g *Game) Speedup() float64 {
-	return enemyBaseSpeed + float64(g.score)*0.03
+	return enemyBaseSpeed + float64(g.scoreManager.Score())*0.03
 }
 
 func (g *Game) Update() error {
+	if !g.started {
+		if ebiten.IsKeyPressed(ebiten.KeySpace) {
+			g.started = true
+		}
+		return nil
+	}
+
 	if g.gameOver {
 		if ebiten.IsKeyPressed(ebiten.KeyR) {
 			g.Reset()
@@ -89,7 +102,7 @@ func (g *Game) Update() error {
 		g.enemies[i].Update()
 
 		if g.enemies[i].IsOffScreen() {
-			g.score++
+			g.scoreManager.UpdateScore()
 			g.enemies[i].SetSpeed(g.Speedup())
 			g.road.SetSpeed(g.Speedup())
 
@@ -114,16 +127,22 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) hudText() string {
+	if !g.started {
+		return fmt.Sprintf("ENDURO GO\n\nBest: %d\nPress SPACE to start\nArrow keys to move", g.scoreManager.BestScore())
+	}
+
 	if g.gameOver {
 		return fmt.Sprintf(
-			"GAME OVER\nScore: %d\nPress R to restart",
-			g.score,
+			"GAME OVER\nScore: %d\nBest: %d\nPress R to restart",
+			g.scoreManager.Score(),
+			g.scoreManager.BestScore(),
 		)
 	}
 
 	return fmt.Sprintf(
-		"Score: %d\nMove: Left / Right",
-		g.score,
+		"Score: %d\nBest: %d\nMove: Left / Right",
+		g.scoreManager.Score(),
+		g.scoreManager.BestScore(),
 	)
 }
 func (g *Game) sceneLight() float64 {
