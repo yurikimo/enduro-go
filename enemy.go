@@ -17,6 +17,7 @@ const (
 	enemyMinSpeed   = 2.0
 	enemyMaxSpeed   = 4.0
 	enemyStartYGap  = 10.0
+	enemySpawnGap   = 34.0
 )
 
 var enemyLanes = []float64{-0.75, 0.0, 0.75}
@@ -90,11 +91,51 @@ func (e *Enemy) spawnFromBottom(road Road, blocked []float64) {
 	e.speed = randomEnemySpeed()
 }
 
-func (e *Enemy) Respawn(road Road, blocked []float64, playerSpeed float64) {
+func (e *Enemy) applySpawnSpacingFromTop(occupiedY []float64) {
+	topMostY := float64(screenHeight)
+	found := false
+
+	for _, y := range occupiedY {
+		if y < topMostY {
+			topMostY = y
+			found = true
+		}
+	}
+
+	if found {
+		spacedY := topMostY - enemySpawnGap
+		if spacedY < e.y {
+			e.y = spacedY
+		}
+	}
+}
+
+func (e *Enemy) applySpawnSpacingFromBottom(occupiedY []float64) {
+	bottomMostY := -enemySpawnGap
+	found := false
+
+	for _, y := range occupiedY {
+		if y > bottomMostY {
+			bottomMostY = y
+			found = true
+		}
+	}
+
+	if found {
+		spacedY := bottomMostY + enemySpawnGap
+		if spacedY > e.y {
+			e.y = spacedY
+		}
+	}
+}
+
+func (e *Enemy) Respawn(road Road, blocked []float64, playerSpeed float64, occupiedY []float64) {
 	if playerSpeed >= e.speed {
 		e.spawnFromTop(road, blocked)
+		e.applySpawnSpacingFromTop(occupiedY)
 	} else {
 		e.spawnFromBottom(road, blocked)
+		e.applySpawnSpacingFromBottom(occupiedY)
 	}
 }
 

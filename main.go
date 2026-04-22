@@ -118,14 +118,16 @@ func (g *Game) Update() error {
 			}
 
 			blockedLanes := make([]float64, 0, len(g.enemies)-1)
+			occupiedY := make([]float64, 0, len(g.enemies)-1)
 			for j := range g.enemies {
 				if j == i {
 					continue
 				}
 				blockedLanes = append(blockedLanes, g.enemies[j].LaneOffset())
+				occupiedY = append(occupiedY, g.enemies[j].y)
 			}
 
-			g.enemies[i].Respawn(g.road, blockedLanes, g.player.Speed())
+			g.enemies[i].Respawn(g.road, blockedLanes, g.player.Speed(), occupiedY)
 		}
 
 		if g.player.IsColliding(g.enemies[i].Rect(g.road)) {
