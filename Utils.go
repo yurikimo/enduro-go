@@ -1,6 +1,9 @@
-﻿package main
+package main
 
-import "image/color"
+import (
+	"fmt"
+	"image/color"
+)
 
 type Rect struct {
 	X float64
@@ -12,6 +15,7 @@ type Rect struct {
 func lerp(a, b, t float64) float64 {
 	return a + (b-a)*t
 }
+
 func lerpColor(a, b color.RGBA, t float64) color.RGBA {
 	return color.RGBA{
 		R: uint8(lerp(float64(a.R), float64(b.R), t)),
@@ -42,4 +46,8 @@ func insetRect(rect Rect, scale float64) Rect {
 		W: newWidth,
 		H: newHeight,
 	}
+}
+
+func titleBestScoreText(bestScore int) string {
+	return fmt.Sprintf("BEST SCORE  %d", bestScore)
 }

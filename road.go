@@ -93,47 +93,6 @@ func (r *Road) BoundsAt(y float64) (float64, float64) {
 	return r.roadEdgesAt(y)
 }
 
-func (r *Road) CurveAngleAt(y float64) float64 {
-	const sampleStep = 6.0
-
-	topY := y - sampleStep
-	bottomY := y + sampleStep
-
-	if topY < r.horizonY {
-		topY = r.horizonY
-	}
-	if bottomY > float64(screenHeight) {
-		bottomY = float64(screenHeight)
-	}
-
-	deltaY := bottomY - topY
-	if deltaY == 0 {
-		return 0
-	}
-
-	deltaX := r.CenterXAt(bottomY) - r.CenterXAt(topY)
-	return math.Atan2(deltaX, deltaY)
-}
-
-func (r *Road) CenterOffsetAt(x, y float64) float64 {
-	left, right := r.BoundsAt(y)
-	centerX := (left + right) / 2
-	halfWidth := (right - left) / 2
-	if halfWidth == 0 {
-		return 0
-	}
-
-	offset := (x - centerX) / halfWidth
-	if offset < -1 {
-		return -1
-	}
-	if offset > 1 {
-		return 1
-	}
-
-	return offset
-}
-
 func (r *Road) Update() {
 	r.lineOffsetY += roadScrollScale * r.speed
 

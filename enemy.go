@@ -10,18 +10,18 @@ import (
 const (
 	enemyBaseWidth         = 1.0
 	enemyBaseHeight        = 1.0
-	enemyMaxWidth          = 24.0
-	enemyMaxHeight         = 16.0
+	enemyMaxWidth          = 32
+	enemyMaxHeight         = 24
 	enemyMinSpeed          = 2.0
 	enemyMaxSpeed          = 4.0
 	enemyStartYGap         = 10.0
 	enemySpawnGap          = 34.0
 	enemyMaxSizeAt         = 3.0 / 6.0
 	enemyMaxLifetimeFrames = 900
-	enemyCollisionScale    = 0.75
+	enemyCollisionScale    = 1
 )
 
-var enemyLanes = []float64{-0.75, 0.0, 0.75}
+var enemyLanes = []float64{-0.5, 0.0, 0.5}
 
 type Enemy struct {
 	laneOffset  float64
@@ -29,6 +29,14 @@ type Enemy struct {
 	speed       float64
 	framesAlive int
 	colorIndex  int
+}
+
+type enemyGeometry struct {
+	progress float64
+	width    float64
+	height   float64
+	x        float64
+	contactY float64
 }
 
 func NewEnemy(road Road) Enemy {
@@ -235,9 +243,7 @@ func (e *Enemy) size(road Road) (float64, float64) {
 	return e.sizeFromProgress(e.perspectiveProgressGuess(road))
 }
 
-func (e *Enemy) screenX(road Road) float64 {
-	width, _ := e.size(road)
-	contactY := e.y + e.contactHeight(road)
+func (e *Enemy) screenX(road Road, width, contactY float64) float64 {
 	left, right := road.BoundsAt(contactY)
 	centerX := (left + right) / 2
 	roadWidthAtY := right - left
@@ -250,28 +256,39 @@ func (e *Enemy) contactHeight(road Road) float64 {
 	return height
 }
 
+func (e *Enemy) geometry(road Road) enemyGeometry {
+	progress := e.perspectiveProgressGuess(road)
+	width, height := e.sizeFromProgress(progress)
+	contactY := e.y + height
+
+	return enemyGeometry{
+		progress: progress,
+		width:    width,
+		height:   height,
+		x:        e.screenX(road, width, contactY),
+		contactY: contactY,
+	}
+}
+
 func (e *Enemy) Draw(screen *ebiten.Image, road Road, visibility float64) {
-	width, height := e.size(road)
-	x := e.screenX(road)
-	progress := e.perspectiveProgress(road)
-	tint := applyVisibility(colorRGBA(255, 255, 255), visibility, progress)
+	geometry := e.geometry(road)
+	tint := applyVisibility(colorRGBA(255, 255, 255), visibility, geometry.progress)
 
 	options := &ebiten.DrawImageOptions{}
-	options.GeoM.Scale(width/carSpriteWidth, height/carSpriteHeight)
-	options.GeoM.Translate(x, e.y)
+	options.GeoM.Scale(geometry.width/carSpriteWidth, geometry.height/carSpriteHeight)
+	options.GeoM.Translate(geometry.x, e.y)
 	options.ColorScale.ScaleWithColor(tint)
 
 	screen.DrawImage(enemyCarSprite(e.colorIndex), options)
 }
 
 func (e *Enemy) Rect(road Road) Rect {
-	width, height := e.size(road)
-	x := e.screenX(road)
+	geometry := e.geometry(road)
 
 	return insetRect(Rect{
-		X: x,
+		X: geometry.x,
 		Y: e.y,
-		W: width,
-		H: height,
+		W: geometry.width,
+		H: geometry.height,
 	}, enemyCollisionScale)
 }

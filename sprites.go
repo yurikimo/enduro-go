@@ -65,11 +65,11 @@ func enemyCarSprite(index int) *ebiten.Image {
 func makeCarSprite(bodyColor, glassColor, accentColor color.RGBA) *ebiten.Image {
 	sprite := image.NewRGBA(image.Rect(0, 0, carSpriteWidth, carSpriteHeight))
 
-	darkBlue := color.RGBA{0, 0, 120, 255}
-	blueHighlight := color.RGBA{20, 60, 255, 255}
-	windowDark := color.RGBA{40, 40, 40, 255}
-	windowMid := color.RGBA{120, 120, 120, 255}
-	windowLight := color.RGBA{180, 180, 180, 255}
+	darkShade := accentColor
+	brightAccent := lerpColor(bodyColor, colorRGBA(255, 255, 255), 0.25)
+	windowDark := lerpColor(glassColor, colorRGBA(40, 40, 40), 0.65)
+	windowMid := glassColor
+	windowLight := lerpColor(glassColor, colorRGBA(255, 255, 255), 0.35)
 	tailRed := color.RGBA{220, 0, 0, 255}
 	tailOrange := color.RGBA{255, 120, 0, 255}
 	wheel := color.RGBA{24, 24, 24, 255}
@@ -105,23 +105,23 @@ func makeCarSprite(bodyColor, glassColor, accentColor color.RGBA) *ebiten.Image 
 	paintRect(sprite, 1, 7, 22, 1, bodyColor)
 
 	// Dark under-roof band
-	paintRect(sprite, 2, 8, 20, 1, darkBlue)
+	paintRect(sprite, 2, 8, 20, 1, darkShade)
 
 	// Small left details visible in the reference
-	paintRect(sprite, 5, 8, 1, 1, darkBlue)
-	paintRect(sprite, 7, 8, 1, 1, blueHighlight)
-	paintRect(sprite, 5, 9, 1, 1, blueHighlight)
-	paintRect(sprite, 7, 9, 1, 1, blueHighlight)
+	paintRect(sprite, 5, 8, 1, 1, darkShade)
+	paintRect(sprite, 7, 8, 1, 1, brightAccent)
+	paintRect(sprite, 5, 9, 1, 1, brightAccent)
+	paintRect(sprite, 7, 9, 1, 1, brightAccent)
 
 	// --- Main rear body ---
 	paintRect(sprite, 1, 9, 22, 1, bodyColor)
-	paintRect(sprite, 0, 10, 24, 1, darkBlue)
-	paintRect(sprite, 0, 11, 24, 3, darkBlue)
+	paintRect(sprite, 0, 10, 24, 1, darkShade)
+	paintRect(sprite, 0, 11, 24, 3, darkShade)
 
 	// Center blue panel / rear grille
-	paintRect(sprite, 9, 10, 6, 1, blueHighlight)
-	paintRect(sprite, 9, 11, 6, 1, blueHighlight)
-	paintRect(sprite, 8, 12, 8, 1, blueHighlight)
+	paintRect(sprite, 9, 10, 6, 1, brightAccent)
+	paintRect(sprite, 9, 11, 6, 1, brightAccent)
+	paintRect(sprite, 8, 12, 8, 1, brightAccent)
 
 	// Lower center recess
 	paintRect(sprite, 8, 13, 8, 1, wheel)
@@ -140,8 +140,8 @@ func makeCarSprite(bodyColor, glassColor, accentColor color.RGBA) *ebiten.Image 
 	paintRect(sprite, 16, 11, 1, 2, tailRed)
 
 	// --- Lower body corners ---
-	paintRect(sprite, 0, 14, 8, 1, darkBlue)
-	paintRect(sprite, 16, 14, 8, 1, darkBlue)
+	paintRect(sprite, 0, 14, 8, 1, darkShade)
+	paintRect(sprite, 16, 14, 8, 1, darkShade)
 
 	// --- Wheels ---
 	paintRect(sprite, 2, 14, 4, 2, wheel)

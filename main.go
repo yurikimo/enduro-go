@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -22,11 +23,25 @@ type Game struct {
 	enemies      []Enemy
 	scoreManager ScoreManager
 	soundManager SoundManager
+	blockedLanes []float64
+	occupiedY    []float64
 	paused       bool
 	gameOver     bool
 	timeOfDay    float64
 	started      bool
 	pKeyDown     bool
+	hudCacheKey  hudCacheKey
+	hudCacheText string
+}
+
+type hudCacheKey struct {
+	started    bool
+	paused     bool
+	gameOver   bool
+	score      int
+	bestScore  int
+	speedTenth int
+	newBest    bool
 }
 
 func NewGame() *Game {
@@ -51,6 +66,8 @@ func NewGame() *Game {
 		enemies:      enemies,
 		scoreManager: scoreManager,
 		soundManager: NewSoundManager(),
+		blockedLanes: make([]float64, 0, len(enemies)-1),
+		occupiedY:    make([]float64, 0, len(enemies)-1),
 		started:      false,
 	}
 }
@@ -74,6 +91,7 @@ func (g *Game) Reset() {
 	g.paused = false
 	g.gameOver = false
 	g.timeOfDay = 0
+	g.hudCacheText = ""
 }
 
 func (g *Game) handlePauseToggle() {
@@ -123,17 +141,17 @@ func (g *Game) Update() error {
 				g.scoreManager.UpdateScore()
 			}
 
-			blockedLanes := make([]float64, 0, len(g.enemies)-1)
-			occupiedY := make([]float64, 0, len(g.enemies)-1)
+			g.blockedLanes = g.blockedLanes[:0]
+			g.occupiedY = g.occupiedY[:0]
 			for j := range g.enemies {
 				if j == i {
 					continue
 				}
-				blockedLanes = append(blockedLanes, g.enemies[j].LaneOffset())
-				occupiedY = append(occupiedY, g.enemies[j].y)
+				g.blockedLanes = append(g.blockedLanes, g.enemies[j].LaneOffset())
+				g.occupiedY = append(g.occupiedY, g.enemies[j].y)
 			}
 
-			g.enemies[i].Respawn(g.road, blockedLanes, g.player.Speed(), occupiedY)
+			g.enemies[i].Respawn(g.road, g.blockedLanes, g.player.Speed(), g.occupiedY)
 		}
 
 		if g.player.IsColliding(g.enemies[i].Rect(g.road)) {
@@ -146,42 +164,59 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) hudText() string {
+	key := hudCacheKey{
+		started:    g.started,
+		paused:     g.paused,
+		gameOver:   g.gameOver,
+		score:      g.scoreManager.Score(),
+		bestScore:  g.scoreManager.BestScore(),
+		speedTenth: int(g.player.Speed() * 10),
+		newBest:    g.scoreManager.HasNewBest(),
+	}
+	if key == g.hudCacheKey {
+		return g.hudCacheText
+	}
+
+	g.hudCacheKey = key
+
 	if !g.started {
-		return ""
+		g.hudCacheText = ""
+		return g.hudCacheText
 	}
 
 	if g.gameOver {
-		message := fmt.Sprintf(
-			"GAME OVER\nScore: %d\nBest: %d",
-			g.scoreManager.Score(),
-			g.scoreManager.BestScore(),
-		)
-		if g.scoreManager.HasNewBest() {
-			message += "\nNEW BEST!"
+		var builder strings.Builder
+		fmt.Fprintf(&builder, "GAME OVER\nScore: %d\nBest: %d", key.score, key.bestScore)
+		if key.newBest {
+			builder.WriteString("\nNEW BEST!")
 		}
-		return message + "\nPress R to restart"
+		builder.WriteString("\nPress R to restart")
+		g.hudCacheText = builder.String()
+		return g.hudCacheText
 	}
 
 	if g.paused {
-		return fmt.Sprintf(
+		g.hudCacheText = fmt.Sprintf(
 			"PAUSED\nScore: %d\nBest: %d\nPress P to resume",
-			g.scoreManager.Score(),
-			g.scoreManager.BestScore(),
+			key.score,
+			key.bestScore,
 		)
+		return g.hudCacheText
 	}
 
-	return fmt.Sprintf(
+	g.hudCacheText = fmt.Sprintf(
 		"Score: %d\nBest: %d\nSpeed: %.1f\nMove: Left/Right\nAccel: Up  Brake: Down\nPause: P",
-		g.scoreManager.Score(),
-		g.scoreManager.BestScore(),
-		g.player.Speed(),
+		key.score,
+		key.bestScore,
+		float64(key.speedTenth)/10,
 	)
+	return g.hudCacheText
 }
 
 func (g *Game) drawTitleScreen(screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, "ENDURO GO", 8, 8)
 	ebitenutil.DebugPrintAt(screen, "Old time road racing in Go", 58, 62)
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("BEST SCORE  %d", g.scoreManager.BestScore()), 96, 90)
+	ebitenutil.DebugPrintAt(screen, titleBestScoreText(g.scoreManager.BestScore()), 96, 90)
 	ebitenutil.DebugPrintAt(screen, "Arrow keys steer", 103, 178)
 	ebitenutil.DebugPrintAt(screen, "Up/Down controls speed", 86, 192)
 
@@ -225,10 +260,15 @@ func (g *Game) visibility() float64 {
 	return 0.20 + g.sceneLight()*0.80
 }
 
-func (g *Game) Draw(screen *ebiten.Image) {
-	visibility := g.visibility()
+func visibilityFromLight(sceneLight float64) float64 {
+	return 0.20 + sceneLight*0.80
+}
 
-	g.road.Draw(screen, g.skyColor(), g.sceneLight(), visibility)
+func (g *Game) Draw(screen *ebiten.Image) {
+	sceneLight := g.sceneLight()
+	visibility := visibilityFromLight(sceneLight)
+
+	g.road.Draw(screen, g.skyColor(), sceneLight, visibility)
 	g.player.Draw(screen, g.road)
 
 	for _, enemy := range g.enemies {

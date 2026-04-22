@@ -3,8 +3,8 @@ package main
 import "github.com/hajimehoshi/ebiten/v2"
 
 const (
-	playerWidth          = 24
-	playerHeight         = 16
+	playerWidth          = 32
+	playerHeight         = 24
 	playerY              = screenHeight - 40
 	playerSteerSpeed     = 3.5
 	playerMinSpeed       = 0.5

@@ -16,11 +16,10 @@ type SoundManager struct {
 	context       *audio.Context
 	enginePlayers []*audio.Player
 	currentEngine int
-	effectPlayers []*audio.Player
-	startBeep     []byte
-	pauseBlip     []byte
-	crashBurst    []byte
-	gameStart     []byte
+	startBeep     *audio.Player
+	pauseBlip     *audio.Player
+	crashBurst    *audio.Player
+	gameStart     *audio.Player
 }
 
 func NewSoundManager() SoundManager {
@@ -48,16 +47,16 @@ func NewSoundManager() SoundManager {
 		context:       context,
 		enginePlayers: enginePlayers,
 		currentEngine: -1,
-		startBeep:     synthSquareTone(880, 0.08, 0.18),
-		pauseBlip:     synthSquareTone(520, 0.06, 0.14),
-		crashBurst:    synthCrashBurst(0.28, 0.45),
-		gameStart: synthSequence(
+		startBeep: prepareEffectPlayer(context, synthSquareTone(880, 0.08, 0.18)),
+		pauseBlip: prepareEffectPlayer(context, synthSquareTone(520, 0.06, 0.14)),
+		crashBurst: prepareEffectPlayer(context, synthCrashBurst(0.28, 0.45)),
+		gameStart: prepareEffectPlayer(context, synthSequence(
 			synthSquareTone(660, 0.06, 0.16),
 			silencePCM(0.02),
 			synthSquareTone(880, 0.06, 0.16),
 			silencePCM(0.02),
 			synthSquareTone(1175, 0.10, 0.18),
-		),
+		)),
 	}
 }
 
@@ -76,8 +75,6 @@ func (s *SoundManager) OnPauseChanged(paused bool) {
 }
 
 func (s *SoundManager) UpdateEngine(playerSpeed float64, paused bool, gameOver bool) {
-	s.cleanupFinishedEffects()
-
 	if paused || gameOver || playerSpeed <= 0 {
 		s.pauseEngine()
 		return
@@ -114,23 +111,15 @@ func (s *SoundManager) pauseEngine() {
 	s.currentEngine = -1
 }
 
-func (s *SoundManager) playEffect(sample []byte) {
-	player := s.context.NewPlayerFromBytes(sample)
-	player.Play()
-	s.effectPlayers = append(s.effectPlayers, player)
+func prepareEffectPlayer(context *audio.Context, sample []byte) *audio.Player {
+	player := context.NewPlayerFromBytes(sample)
+	return player
 }
 
-func (s *SoundManager) cleanupFinishedEffects() {
-	active := s.effectPlayers[:0]
-	for _, player := range s.effectPlayers {
-		if player.IsPlaying() {
-			active = append(active, player)
-			continue
-		}
-
-		_ = player.Close()
-	}
-	s.effectPlayers = active
+func (s *SoundManager) playEffect(player *audio.Player) {
+	player.Pause()
+	_ = player.Rewind()
+	player.Play()
 }
 
 func selectEngineLoop(playerSpeed float64) int {
