@@ -85,6 +85,7 @@ func (g *Game) Update() error {
 	g.handlePauseToggle()
 
 	if !g.started {
+		g.timeOfDay += 1.0 / 60.0
 		if ebiten.IsKeyPressed(ebiten.KeySpace) {
 			g.started = true
 		}
@@ -138,7 +139,7 @@ func (g *Game) Update() error {
 func (g *Game) hudText() string {
 	if !g.started {
 		return fmt.Sprintf(
-			"ENDURO GO\n\nBest: %d\nPress SPACE to start\nArrow keys to move\nUp/Down to control speed",
+			"ENDURO GO\n\nBest: %d\nArrow keys to move\nUp/Down to control speed",
 			g.scoreManager.BestScore(),
 		)
 	}
@@ -213,6 +214,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	ebitenutil.DebugPrintAt(screen, g.hudText(), 8, 8)
+
+	if !g.started && math.Mod(g.timeOfDay, 1.0) < 0.5 {
+		ebitenutil.DebugPrintAt(screen, "Press SPACE to start", 96, 118)
+	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
