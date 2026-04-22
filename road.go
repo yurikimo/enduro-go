@@ -2,6 +2,7 @@
 
 import (
 	"image/color"
+	"math"
 	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -166,6 +167,25 @@ func scaleColor(base color.RGBA, light float64) color.RGBA {
 	}
 }
 
+func tintEnvironmentColor(base color.RGBA, sceneLight float64) color.RGBA {
+	if sceneLight < 0 {
+		sceneLight = 0
+	}
+	if sceneLight > 1 {
+		sceneLight = 1
+	}
+
+	duskStrength := 1.0 - math.Abs(sceneLight-0.5)*2.0
+	if duskStrength < 0 {
+		duskStrength = 0
+	}
+
+	nightStrength := 1.0 - sceneLight
+
+	warmed := lerpColor(base, color.RGBA{166, 94, 58, 255}, duskStrength*0.18)
+	return lerpColor(warmed, color.RGBA{34, 48, 82, 255}, nightStrength*0.22)
+}
+
 func horizonColor(sceneLight float64) color.RGBA {
 	return scaleColor(color.RGBA{200, 190, 90, 255}, sceneLight)
 }
@@ -247,8 +267,8 @@ func drawCurvedMarker(screen *ebiten.Image, road *Road, y, width, height float64
 }
 
 func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float64, visibility float64) {
-	groundColor := scaleColor(color.RGBA{34, 139, 34, 255}, sceneLight)
-	roadColor := scaleColor(color.RGBA{70, 70, 70, 255}, sceneLight)
+	groundColor := tintEnvironmentColor(scaleColor(color.RGBA{34, 139, 34, 255}, sceneLight), sceneLight)
+	roadColor := tintEnvironmentColor(scaleColor(color.RGBA{70, 70, 70, 255}, sceneLight), sceneLight)
 	lineColor := scaleColor(color.RGBA{240, 240, 240, 255}, sceneLight)
 
 	screen.Fill(skyColor)
