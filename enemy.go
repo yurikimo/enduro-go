@@ -8,14 +8,18 @@ import (
 )
 
 const (
-	enemyBaseWidth  = 8.0
-	enemyBaseHeight = 12.0
+	enemyBaseWidth  = 1.0
+	enemyBaseHeight = 1.0
 	enemyMaxWidth   = 16.0
 	enemyMaxHeight  = 24.0
 	enemyMinSpeed   = 2.0
 	enemyMaxSpeed   = 4.0
 	enemyStartYGap  = 10.0
 	enemySpawnGap   = 34.0
+	enemyMaxLeanAng = 0.75
+	enemyBottomLean = 0.22
+	enemyMaxSizeAt  = 5.0 / 6.0
+	enemyMaxLifetimeFrames = 900
 )
 
 var enemyLanes = []float64{-0.75, 0.0, 0.75}
@@ -24,6 +28,7 @@ type Enemy struct {
 	laneOffset float64
 	y          float64
 	speed      float64
+	framesAlive int
 }
 
 func NewEnemy(road Road) Enemy {
@@ -31,6 +36,7 @@ func NewEnemy(road Road) Enemy {
 		laneOffset: randomLaneOffset(),
 		y:          road.horizonY + enemyStartYGap,
 		speed:      randomEnemySpeed(),
+		framesAlive: 0,
 	}
 }
 
@@ -74,12 +80,14 @@ func randomLaneOffsetAvoiding(blocked []float64) float64 {
 func (e *Enemy) Update(playerSpeed float64) {
 	relativeSpeed := playerSpeed - e.speed
 	e.y += relativeSpeed
+	e.framesAlive++
 }
 
 func (e *Enemy) spawnFromTop(road Road, blocked []float64) {
 	e.laneOffset = randomLaneOffsetAvoiding(blocked)
 	e.y = road.horizonY + enemyStartYGap
 	e.speed = randomEnemySpeed()
+	e.framesAlive = 0
 }
 
 func (e *Enemy) spawnFromBottom(road Road, blocked []float64) {
@@ -87,6 +95,7 @@ func (e *Enemy) spawnFromBottom(road Road, blocked []float64) {
 	_, height := e.size(road)
 	e.y = float64(screenHeight) - height - 4
 	e.speed = randomEnemySpeed()
+	e.framesAlive = 0
 }
 
 func (e *Enemy) applySpawnSpacingFromTop(occupiedY []float64) {
@@ -105,6 +114,11 @@ func (e *Enemy) applySpawnSpacingFromTop(occupiedY []float64) {
 		if spacedY < e.y {
 			e.y = spacedY
 		}
+	}
+
+	minSpawnY := -enemyMaxHeight - enemySpawnGap
+	if e.y < minSpawnY {
+		e.y = minSpawnY
 	}
 }
 
@@ -125,6 +139,12 @@ func (e *Enemy) applySpawnSpacingFromBottom(occupiedY []float64) {
 			e.y = spacedY
 		}
 	}
+
+	_, height := e.sizeFromProgress(1)
+	maxSpawnY := float64(screenHeight) - height - 4
+	if e.y > maxSpawnY {
+		e.y = maxSpawnY
+	}
 }
 
 func (e *Enemy) Respawn(road Road, blocked []float64, playerSpeed float64, occupiedY []float64) {
@@ -141,6 +161,7 @@ func (e *Enemy) Reset(road Road) {
 	e.laneOffset = randomLaneOffset()
 	e.y = road.horizonY + enemyStartYGap
 	e.speed = randomEnemySpeed()
+	e.framesAlive = 0
 }
 
 func (e *Enemy) IsBelowScreen() bool {
@@ -149,6 +170,10 @@ func (e *Enemy) IsBelowScreen() bool {
 
 func (e *Enemy) IsAboveHorizon(road Road) bool {
 	return e.y < road.horizonY+enemyStartYGap-20
+}
+
+func (e *Enemy) HasExpired() bool {
+	return e.framesAlive >= enemyMaxLifetimeFrames
 }
 
 func (e *Enemy) perspectiveProgress(road Road) float64 {
@@ -183,8 +208,17 @@ func (e *Enemy) perspectiveProgressGuess(road Road) float64 {
 }
 
 func (e *Enemy) sizeFromProgress(progress float64) (float64, float64) {
-	width := enemyBaseWidth + (enemyMaxWidth-enemyBaseWidth)*progress
-	height := enemyBaseHeight + (enemyMaxHeight-enemyBaseHeight)*progress
+	if progress < 0 {
+		progress = 0
+	}
+
+	sizeProgress := progress / enemyMaxSizeAt
+	if sizeProgress > 1 {
+		sizeProgress = 1
+	}
+
+	width := enemyBaseWidth + (enemyMaxWidth-enemyBaseWidth)*sizeProgress
+	height := enemyBaseHeight + (enemyMaxHeight-enemyBaseHeight)*sizeProgress
 
 	return width, height
 }
@@ -214,7 +248,9 @@ func (e *Enemy) Draw(screen *ebiten.Image, road Road, visibility float64) {
 	progress := e.perspectiveProgress(road)
 	tint := applyVisibility(colorRGBA(255, 255, 255), visibility, progress)
 	contactY := e.y + height
-	angle := -road.CurveAngleAt(contactY)
+	centerOffset := road.CenterOffsetAt(x+width/2, contactY)
+	leanAngle := lerp(enemyMaxLeanAng, enemyBottomLean, progress)
+	angle := -centerOffset * leanAngle
 
 	options := &ebiten.DrawImageOptions{}
 	options.GeoM.Translate(-carSpriteWidth/2, -carSpriteHeight)

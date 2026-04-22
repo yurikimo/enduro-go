@@ -115,6 +115,25 @@ func (r *Road) CurveAngleAt(y float64) float64 {
 	return math.Atan2(deltaX, deltaY)
 }
 
+func (r *Road) CenterOffsetAt(x, y float64) float64 {
+	left, right := r.BoundsAt(y)
+	centerX := (left + right) / 2
+	halfWidth := (right - left) / 2
+	if halfWidth == 0 {
+		return 0
+	}
+
+	offset := (x - centerX) / halfWidth
+	if offset < -1 {
+		return -1
+	}
+	if offset > 1 {
+		return 1
+	}
+
+	return offset
+}
+
 func (r *Road) Update() {
 	r.lineOffsetY += roadScrollScale * r.speed
 

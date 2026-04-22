@@ -118,7 +118,7 @@ func (g *Game) Update() error {
 	for i := range g.enemies {
 		g.enemies[i].Update(g.player.Speed())
 
-		if g.enemies[i].IsBelowScreen() || g.enemies[i].IsAboveHorizon(g.road) {
+		if g.enemies[i].IsBelowScreen() || g.enemies[i].IsAboveHorizon(g.road) || g.enemies[i].HasExpired() {
 			if g.enemies[i].IsBelowScreen() {
 				g.scoreManager.UpdateScore()
 			}
