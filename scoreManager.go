@@ -12,6 +12,7 @@ const bestScoreFile = "best_score.txt"
 type ScoreManager struct {
 	score     int
 	bestScore int
+	newBest   bool
 }
 
 func NewScoreManager() ScoreManager {
@@ -30,6 +31,7 @@ func (s *ScoreManager) BestScore() int {
 
 func (s *ScoreManager) ResetScore() {
 	s.score = 0
+	s.newBest = false
 }
 
 func (s *ScoreManager) UpdateScore() {
@@ -37,9 +39,14 @@ func (s *ScoreManager) UpdateScore() {
 
 	if s.score > s.bestScore {
 		s.bestScore = s.score
+		s.newBest = true
 
 		s.SaveBestScore()
 	}
+}
+
+func (s *ScoreManager) HasNewBest() bool {
+	return s.newBest
 }
 
 func (s *ScoreManager) LoadBestScore() {
@@ -60,7 +67,7 @@ func (s *ScoreManager) LoadBestScore() {
 }
 
 func (s *ScoreManager) SaveBestScore() {
-	content := strconv.Itoa(s.score)
+	content := strconv.Itoa(s.bestScore)
 	err := os.WriteFile(bestScoreFile, []byte(content), 0644)
 	if err != nil {
 		log.Println("could not save best score:", err)

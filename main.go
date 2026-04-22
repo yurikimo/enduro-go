@@ -140,18 +140,19 @@ func (g *Game) Update() error {
 
 func (g *Game) hudText() string {
 	if !g.started {
-		return fmt.Sprintf(
-			"ENDURO GO\n\nBest: %d\nArrow keys to move\nUp/Down to control speed",
-			g.scoreManager.BestScore(),
-		)
+		return ""
 	}
 
 	if g.gameOver {
-		return fmt.Sprintf(
-			"GAME OVER\nScore: %d\nBest: %d\nPress R to restart",
+		message := fmt.Sprintf(
+			"GAME OVER\nScore: %d\nBest: %d",
 			g.scoreManager.Score(),
 			g.scoreManager.BestScore(),
 		)
+		if g.scoreManager.HasNewBest() {
+			message += "\nNEW BEST!"
+		}
+		return message + "\nPress R to restart"
 	}
 
 	if g.paused {
@@ -168,6 +169,18 @@ func (g *Game) hudText() string {
 		g.scoreManager.BestScore(),
 		g.player.Speed(),
 	)
+}
+
+func (g *Game) drawTitleScreen(screen *ebiten.Image) {
+	ebitenutil.DebugPrintAt(screen, "ENDURO GO", 8, 8)
+	ebitenutil.DebugPrintAt(screen, "Old time road racing in Go", 58, 62)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("BEST SCORE  %d", g.scoreManager.BestScore()), 96, 90)
+	ebitenutil.DebugPrintAt(screen, "Arrow keys steer", 103, 178)
+	ebitenutil.DebugPrintAt(screen, "Up/Down controls speed", 86, 192)
+
+	if math.Mod(g.timeOfDay, 1.0) < 0.5 {
+		ebitenutil.DebugPrintAt(screen, "Press SPACE to start", 96, 122)
+	}
 }
 
 func (g *Game) sceneLight() float64 {
@@ -215,11 +228,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		enemy.Draw(screen, g.road, visibility)
 	}
 
-	ebitenutil.DebugPrintAt(screen, g.hudText(), 8, 8)
-
-	if !g.started && math.Mod(g.timeOfDay, 1.0) < 0.5 {
-		ebitenutil.DebugPrintAt(screen, "Press SPACE to start", 96, 118)
+	if !g.started {
+		g.drawTitleScreen(screen)
+		return
 	}
+
+	ebitenutil.DebugPrintAt(screen, g.hudText(), 8, 8)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
