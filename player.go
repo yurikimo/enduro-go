@@ -13,10 +13,11 @@ const (
 	playerY            = screenHeight - 40
 	playerSteerSpeed   = 3.5
 	playerMinSpeed     = 0.5
-	playerMaxSpeed     = 8.0
+	playerMaxSpeed     = 6.0
 	playerStartSpeed   = 3.0
 	playerAcceleration = 0.06
 	playerBrakeSpeed   = 0.10
+	playerCurveDrift   = 0.015
 )
 
 type Player struct {
@@ -54,6 +55,9 @@ func (p *Player) Update(road Road) {
 	if p.speed > playerMaxSpeed {
 		p.speed = playerMaxSpeed
 	}
+
+	// Road curvature pushes the player sideways.
+	p.x -= road.CurveOffset() * playerCurveDrift
 
 	left, right := road.BoundsAt(float64(playerY))
 	if p.x < left {

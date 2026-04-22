@@ -2,6 +2,7 @@
 
 import (
 	"image/color"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -13,6 +14,12 @@ const (
 	roadHorizonY    = 60.0
 	edgeLineWidth   = 2.0
 	roadScrollScale = 0.02
+
+	curveMaxOffset    = 60.0
+	curveSmoothness   = 0.02
+	curveMinFrames    = 180
+	curveMaxFrames    = 360
+	curveStraightBias = 0.30
 )
 
 type Road struct {
@@ -22,31 +29,63 @@ type Road struct {
 	horizonY    float64
 	lineOffsetY float64
 	speed       float64
+
+	curveOffset float64
+	curveTarget float64
+	curveFrames int
 }
 
 func NewRoad() Road {
 	centerX := float64(screenWidth) / 2
 
-	return Road{
+	road := Road{
 		x:           centerX,
 		bottomWidth: roadBottomWidth,
 		topWidth:    roadTopWidth,
 		horizonY:    roadHorizonY,
 		lineOffsetY: 0,
 		speed:       0,
+		curveOffset: 0,
+		curveTarget: 0,
+		curveFrames: randomCurveFrames(),
 	}
+
+	return road
+}
+
+func randomCurveFrames() int {
+	return curveMinFrames + rand.Intn(curveMaxFrames-curveMinFrames+1)
+}
+
+func randomCurveTarget() float64 {
+	if rand.Float64() < curveStraightBias {
+		return 0
+	}
+
+	return (rand.Float64()*2 - 1) * curveMaxOffset
 }
 
 func (r *Road) Left() float64 {
-	return r.x - r.bottomWidth/2
+	left, _ := r.BoundsAt(float64(screenHeight))
+	return left
 }
 
 func (r *Road) Right() float64 {
-	return r.x + r.bottomWidth/2
+	_, right := r.BoundsAt(float64(screenHeight))
+	return right
+}
+
+func (r *Road) PlayerRightLimit(playerWidth float64) float64 {
+	return r.Right() - playerWidth
 }
 
 func (r *Road) SetSpeed(speed float64) {
 	r.speed = speed
+}
+
+func (r *Road) CenterXAt(y float64) float64 {
+	left, right := r.roadEdgesAt(y)
+	return (left + right) / 2
 }
 
 func (r *Road) BoundsAt(y float64) (float64, float64) {
@@ -62,6 +101,31 @@ func (r *Road) Update() {
 	for r.lineOffsetY < 0 {
 		r.lineOffsetY += 1.0
 	}
+
+	r.curveOffset = lerp(r.curveOffset, r.curveTarget, curveSmoothness)
+
+	r.curveFrames--
+	if r.curveFrames <= 0 {
+		r.curveTarget = randomCurveTarget()
+		r.curveFrames = randomCurveFrames()
+	}
+}
+func (r *Road) CurveOffset() float64 {
+	return r.curveOffset
+}
+
+func (r *Road) curveShiftAt(y float64) float64 {
+	if y < r.horizonY {
+		y = r.horizonY
+	}
+	if y > float64(screenHeight) {
+		y = float64(screenHeight)
+	}
+
+	progress := (y - r.horizonY) / (float64(screenHeight) - r.horizonY)
+	horizonWeight := 1.0 - progress
+
+	return r.curveOffset * horizonWeight * horizonWeight
 }
 
 func (r *Road) roadEdgesAt(y float64) (float64, float64) {
@@ -75,8 +139,10 @@ func (r *Road) roadEdgesAt(y float64) (float64, float64) {
 	progress := (y - r.horizonY) / (float64(screenHeight) - r.horizonY)
 	width := r.topWidth + (r.bottomWidth-r.topWidth)*progress
 
-	left := r.x - width/2
-	right := r.x + width/2
+	centerX := r.x + r.curveShiftAt(y)
+
+	left := centerX - width/2
+	right := centerX + width/2
 
 	return left, right
 }
@@ -139,6 +205,17 @@ func applyVisibility(base color.RGBA, visibility float64, distanceFactor float64
 	}
 }
 
+func drawCurvedMarker(screen *ebiten.Image, road *Road, y, width, height float64, markerColor color.RGBA) {
+	for i := 0.0; i < height; i++ {
+		sliceY := y + i
+
+		left, right := road.roadEdgesAt(sliceY)
+		centerX := (left + right) / 2
+
+		ebitenutil.DrawRect(screen, centerX-width/2, sliceY, width, 1, markerColor)
+	}
+}
+
 func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float64, visibility float64) {
 	groundColor := scaleColor(color.RGBA{34, 139, 34, 255}, sceneLight)
 	roadColor := scaleColor(color.RGBA{70, 70, 70, 255}, sceneLight)
@@ -172,13 +249,10 @@ func (r *Road) Draw(screen *ebiten.Image, skyColor color.RGBA, sceneLight float6
 		yProgress := progress * progress
 		y := r.horizonY + yProgress*(float64(screenHeight)-r.horizonY)
 
-		left, right := r.roadEdgesAt(y)
-		centerX := (left + right) / 2
-
 		lineWidth := 1.0 + progress*3.0
 		lineHeight := 3.0 + progress*16.0
-
 		markerColor := applyVisibility(lineColor, visibility, progress)
-		ebitenutil.DrawRect(screen, centerX-lineWidth/2, y, lineWidth, lineHeight, markerColor)
+
+		drawCurvedMarker(screen, r, y, lineWidth, lineHeight, markerColor)
 	}
 }
