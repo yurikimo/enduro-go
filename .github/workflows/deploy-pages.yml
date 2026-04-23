@@ -33,7 +33,6 @@ jobs:
           mkdir -p web
           GOOS=js GOARCH=wasm go build -o web/enduro-go.wasm .
           cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/
-          cp index.html web/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
